@@ -144,5 +144,5 @@ int cam_res_mgr_gpio_set_value(unsigned int gpio, int value);
  * @return None
  */
 void cam_res_mgr_shared_clk_config(bool value);
-
+struct led_trigger *get_trig(void);
 #endif /* __CAM_RES_MGR_API_H__ */

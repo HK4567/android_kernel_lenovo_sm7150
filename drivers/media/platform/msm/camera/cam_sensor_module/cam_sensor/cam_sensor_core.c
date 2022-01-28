@@ -616,34 +616,455 @@ void cam_sensor_shutdown(struct cam_sensor_ctrl_t *s_ctrl)
 	s_ctrl->sensor_state = CAM_SENSOR_INIT;
 }
 
+struct cam_sensor_i2c_eeprom_reg_setting{
+	uint32_t reg_addr;
+	enum camera_sensor_i2c_type addr_type;
+	uint32_t reg_data;
+	//data_type = CAMERA_SENSOR_I2C_TYPE_BYTE
+	enum cam_sensor_i2c_cmd_type op_code;
+	uint32_t delay;
+};
+
+struct cam_sensor_i2c_eeprom_moduleid_reg_settings{
+	struct cam_sensor_i2c_eeprom_reg_setting setting_array[20];
+	uint32_t setting_size;
+	unsigned short slave_addr;
+};
+static struct cam_sensor_cci_client tmp_cci_client;
+static struct camera_io_master tmp_camera_io_master;
+/*
+ *  data_size input:max_data_size,output:actual read size
+*/
+static int cam_sensor_eeprom_read_bytes_suq(struct cam_sensor_ctrl_t *s_ctrl,
+        uint8_t* data,
+        uint32_t*data_size,
+        struct cam_sensor_i2c_eeprom_moduleid_reg_settings *reg_settings)
+{
+    int i,rc;
+    uint32_t read_size;
+    enum cam_sensor_i2c_cmd_type op_code;
+    struct cam_sensor_i2c_reg_array tmp_reg_setting;
+    struct cam_sensor_i2c_reg_setting tmp_write;
+    CAM_ERR(CAM_SENSOR,
+            "chenxl devicename %s 0x%x",
+            s_ctrl->device_name,s_ctrl->io_master_info.cci_client->sid);
+    rc = -1;	
+    if (s_ctrl ==NULL)
+    {
+        CAM_ERR(CAM_SENSOR,"chenxl s_ctrl NULL");
+        return -1;
+    }
+
+    memcpy(&tmp_camera_io_master,&(s_ctrl->io_master_info),sizeof(tmp_camera_io_master));
+    memcpy(&tmp_cci_client,s_ctrl->io_master_info.cci_client,sizeof(tmp_cci_client));
+    tmp_cci_client.sid= reg_settings->slave_addr;
+    tmp_camera_io_master.cci_client= &tmp_cci_client;
+
+    for(i = 0,read_size=0;i < reg_settings->setting_size;i++)
+    {
+        op_code = reg_settings->setting_array[i].op_code;
+        switch(op_code){
+            case CAM_SENSOR_I2C_WRITE_RANDOM:
+                tmp_reg_setting.reg_addr = reg_settings->setting_array[i].reg_addr;
+                tmp_reg_setting.reg_data = reg_settings->setting_array[i].reg_data;
+                tmp_reg_setting.delay = reg_settings->setting_array[i].delay;
+                //tmp_reg_setting.data_mask = 0xFF;
+                tmp_write.reg_setting = &tmp_reg_setting;
+                tmp_write.size = 1;
+                tmp_write.addr_type = reg_settings->setting_array[i].addr_type;
+                tmp_write.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+                tmp_write.delay = reg_settings->setting_array[i].delay;
+                rc = camera_io_dev_write(&tmp_camera_io_master,
+                        &tmp_write);
+                if (rc < 0) {
+                    CAM_ERR(CAM_SENSOR,
+                            "chenxl Failed to random write I2C settings: %d",
+                            rc);
+                    goto fail_to_contiue;
+                }
+                break;
+            case CAM_SENSOR_I2C_READ:
+                if(data_size == NULL || *data_size <= 0)
+                {
+                    CAM_ERR(CAM_SENSOR,"chenxl data_size wrong");
+                    rc = -1;
+                    goto fail_to_contiue;
+                }
+                if(read_size >= *data_size||read_size < 0)
+                {
+                    CAM_ERR(CAM_SENSOR,"chenxl read size overflow");
+                    rc = -1;
+                    goto fail_to_contiue;
+                }
+                rc = camera_io_dev_read_seq(&tmp_camera_io_master,
+                        reg_settings->setting_array[i].reg_addr, &data[read_size],
+                        reg_settings->setting_array[i].addr_type,
+                        CAMERA_SENSOR_I2C_TYPE_BYTE,
+                        reg_settings->setting_array[i].reg_data);
+                if (rc < 0) {
+                    CAM_ERR(CAM_SENSOR,
+                            "chenxl Failed to read I2C settings: %d",
+                            rc);
+                    goto fail_to_contiue;
+                }else{
+                    read_size += reg_settings->setting_array[i].reg_data;
+                }
+                break;
+            default:
+                rc = -1;
+                CAM_ERR(CAM_SENSOR,
+                        "chenxl Wrong op code: %d",
+                        op_code);
+                break;
+        }
+    }
+    *data_size = read_size;
+fail_to_contiue:
+    //if(rc < 0|| read_size != reg_settings->data_size){
+    CAM_ERR(CAM_SENSOR,"chenxl rc %d read_size %d",rc,read_size);
+    //}
+    return rc;
+}
+#if 0
+/*
+ *  data_size input:max_data_size,output:actual read size
+ */
+int cam_sensor_eeprom_read_bytes(struct cam_sensor_ctrl_t *s_ctrl,
+        uint32_t *data,
+        uint32_t *data_size,
+        struct cam_sensor_i2c_eeprom_moduleid_reg_settings *reg_settings)
+{
+    int i,rc;
+    uint32_t read_size;
+    enum cam_sensor_i2c_cmd_type op_code;
+    struct cam_sensor_i2c_reg_array tmp_reg_setting;
+    struct cam_sensor_i2c_reg_setting tmp_write;
+    CAM_ERR(CAM_SENSOR,
+            "chenxl devicename %s 0x%x",
+            s_ctrl->device_name,s_ctrl->io_master_info.cci_client->sid);
+    rc = -1;
+    if (s_ctrl ==NULL)
+    {
+        CAM_ERR(CAM_SENSOR,"chenxl s_ctrl NULL");
+        return -1;
+    }
+    memcpy(&tmp_camera_io_master,&(s_ctrl->io_master_info),sizeof(tmp_camera_io_master));
+    memcpy(&tmp_cci_client,s_ctrl->io_master_info.cci_client,sizeof(tmp_cci_client));
+    tmp_cci_client.sid= reg_settings->slave_addr;
+    tmp_camera_io_master.cci_client= &tmp_cci_client;
+
+    for(i = 0,read_size=0;i < reg_settings->setting_size;i++)
+    {
+
+        op_code = reg_settings->setting_array[i].op_code;
+        switch(op_code){
+            case CAM_SENSOR_I2C_WRITE_RANDOM:
+                tmp_reg_setting.reg_addr = reg_settings->setting_array[i].reg_addr;
+                tmp_reg_setting.reg_data = reg_settings->setting_array[i].reg_data;
+                tmp_reg_setting.delay = reg_settings->setting_array[i].delay;
+                //tmp_reg_setting.data_mask = 0xFF;
+                tmp_write.reg_setting = &tmp_reg_setting;
+                tmp_write.size = 1;
+                tmp_write.addr_type = reg_settings->setting_array[i].addr_type;
+                tmp_write.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+                tmp_write.delay = reg_settings->setting_array[i].delay;
+                rc = camera_io_dev_write(&tmp_camera_io_master,
+                        &tmp_write);
+                if (rc < 0) {
+                    CAM_ERR(CAM_SENSOR,
+                            "chenxl Failed to random write I2C settings: %d",
+                            rc);
+                    goto fail_to_contiue;
+                }
+                break;
+            case CAM_SENSOR_I2C_READ:
+                if(data_size == NULL || *data_size <= 0)
+                {
+                    CAM_ERR(CAM_SENSOR,"chenxl data_size wrong");
+                    rc = -1;
+                    goto fail_to_contiue;
+                }
+                if(read_size >= *data_size||read_size < 0)
+                {
+                    CAM_ERR(CAM_SENSOR,"chenxl read size overflow");
+                    rc = -1;
+                    goto fail_to_contiue;
+                }
+
+                rc = camera_io_dev_read(&tmp_camera_io_master,
+                        reg_settings->setting_array[i].reg_addr, &data[read_size],
+                        reg_settings->setting_array[i].addr_type,
+                        CAMERA_SENSOR_I2C_TYPE_BYTE);
+                if (rc < 0) {
+                    CAM_ERR(CAM_SENSOR,
+                            "chenxl Failed to read I2C settings: %d",
+                            rc);
+                    goto fail_to_contiue;
+                }else{
+                    CAM_ERR(CAM_SENSOR,
+                            "chenxl read otp 0x%x:0x%x",reg_settings->setting_array[i].reg_addr,
+                            data[read_size]);
+                    read_size++;
+                }
+                break;
+            default:
+                rc = -1;
+                CAM_ERR(CAM_SENSOR,
+                        "chenxl Wrong op code: %d",
+                        op_code);
+                break;
+        }
+    }
+
+    *data_size = read_size;
+fail_to_contiue:
+    //if(rc < 0|| read_size != reg_settings->data_size){
+    CAM_ERR(CAM_SENSOR,"chenxl error rc %d read_size %d",rc,read_size);
+    //}
+    return rc;
+}
+static struct cam_sensor_i2c_eeprom_moduleid_reg_settings s5k4h7rgb =
+{
+    .setting_array =
+    {
+        {0x0100,CAMERA_SENSOR_I2C_TYPE_WORD,0x01,CAM_SENSOR_I2C_WRITE_RANDOM,100},//stream on
+        {0x0a02,CAMERA_SENSOR_I2C_TYPE_WORD,0x15,CAM_SENSOR_I2C_WRITE_RANDOM,1},//page NO.
+        {0x0a00,CAMERA_SENSOR_I2C_TYPE_WORD,0x01,CAM_SENSOR_I2C_WRITE_RANDOM,1},//read enable
+        {0x0a04,CAMERA_SENSOR_I2C_TYPE_WORD,1,CAM_SENSOR_I2C_READ,1},//read 1 byte
+        {0x0a05,CAMERA_SENSOR_I2C_TYPE_WORD,1,CAM_SENSOR_I2C_READ,1},//read 1 byte
+        {0x0a06,CAMERA_SENSOR_I2C_TYPE_WORD,1,CAM_SENSOR_I2C_READ,1},//read 1 byte
+        {0x0a07,CAMERA_SENSOR_I2C_TYPE_WORD,1,CAM_SENSOR_I2C_READ,1},//read 1 byte
+        {0x0a08,CAMERA_SENSOR_I2C_TYPE_WORD,1,CAM_SENSOR_I2C_READ,1},//read 1 byte
+        {0x0a00,CAMERA_SENSOR_I2C_TYPE_WORD,0x04,CAM_SENSOR_I2C_WRITE_RANDOM,1},
+        {0x0a00,CAMERA_SENSOR_I2C_TYPE_WORD,0x00,CAM_SENSOR_I2C_WRITE_RANDOM,1},
+    },
+    .setting_size = 9,
+    .slave_addr = 0x20 >>1,
+};
+#endif
+static struct cam_sensor_i2c_eeprom_moduleid_reg_settings s5k4h7rgb =
+{
+    .setting_array =
+    {
+        {0x0100,CAMERA_SENSOR_I2C_TYPE_WORD,0x01,CAM_SENSOR_I2C_WRITE_RANDOM,100},//stream on
+        {0x0a02,CAMERA_SENSOR_I2C_TYPE_WORD,0x15,CAM_SENSOR_I2C_WRITE_RANDOM,1},//page NO.
+        {0x0a00,CAMERA_SENSOR_I2C_TYPE_WORD,0x01,CAM_SENSOR_I2C_WRITE_RANDOM,1},//read enable
+        {0x0a04,CAMERA_SENSOR_I2C_TYPE_WORD,5,CAM_SENSOR_I2C_READ,1},//read 2 byte
+        {0x0a02,CAMERA_SENSOR_I2C_TYPE_WORD,0x16,CAM_SENSOR_I2C_WRITE_RANDOM,1},//page NO.
+        {0x0a00,CAMERA_SENSOR_I2C_TYPE_WORD,0x01,CAM_SENSOR_I2C_WRITE_RANDOM,1},//read enable
+        {0x0a04,CAMERA_SENSOR_I2C_TYPE_WORD,5,CAM_SENSOR_I2C_READ,1},//read 2 byte
+        {0x0a02,CAMERA_SENSOR_I2C_TYPE_WORD,0x17,CAM_SENSOR_I2C_WRITE_RANDOM,1},//page NO.
+        {0x0a00,CAMERA_SENSOR_I2C_TYPE_WORD,0x01,CAM_SENSOR_I2C_WRITE_RANDOM,1},//read enable
+        {0x0a04,CAMERA_SENSOR_I2C_TYPE_WORD,5,CAM_SENSOR_I2C_READ,1},//read 2 byte
+        {0x0a00,CAMERA_SENSOR_I2C_TYPE_WORD,0x04,CAM_SENSOR_I2C_WRITE_RANDOM,1},
+        {0x0a00,CAMERA_SENSOR_I2C_TYPE_WORD,0x00,CAM_SENSOR_I2C_WRITE_RANDOM,1},
+    },
+    .setting_size = 12,
+    .slave_addr = 0x20 >>1,
+};
+static struct cam_sensor_i2c_eeprom_moduleid_reg_settings s5k4h7ir =
+{
+    .setting_array =
+    {
+        {0x0100,CAMERA_SENSOR_I2C_TYPE_WORD,0x01,CAM_SENSOR_I2C_WRITE_RANDOM,100},//stream on
+        {0x0a02,CAMERA_SENSOR_I2C_TYPE_WORD,0x15,CAM_SENSOR_I2C_WRITE_RANDOM,1},//page NO.
+        {0x0a00,CAMERA_SENSOR_I2C_TYPE_WORD,0x01,CAM_SENSOR_I2C_WRITE_RANDOM,1},//read enable
+        {0x0a04,CAMERA_SENSOR_I2C_TYPE_WORD,5,CAM_SENSOR_I2C_READ,1},//read 2 byte
+        {0x0a02,CAMERA_SENSOR_I2C_TYPE_WORD,0x16,CAM_SENSOR_I2C_WRITE_RANDOM,1},//page NO.
+        {0x0a00,CAMERA_SENSOR_I2C_TYPE_WORD,0x01,CAM_SENSOR_I2C_WRITE_RANDOM,1},//read enable
+        {0x0a04,CAMERA_SENSOR_I2C_TYPE_WORD,5,CAM_SENSOR_I2C_READ,1},//read 2 byte
+        {0x0a02,CAMERA_SENSOR_I2C_TYPE_WORD,0x17,CAM_SENSOR_I2C_WRITE_RANDOM,1},//page NO.
+        {0x0a00,CAMERA_SENSOR_I2C_TYPE_WORD,0x01,CAM_SENSOR_I2C_WRITE_RANDOM,1},//read enable
+        {0x0a04,CAMERA_SENSOR_I2C_TYPE_WORD,5,CAM_SENSOR_I2C_READ,1},//read 2 byte
+        {0x0a00,CAMERA_SENSOR_I2C_TYPE_WORD,0x04,CAM_SENSOR_I2C_WRITE_RANDOM,1},
+        {0x0a00,CAMERA_SENSOR_I2C_TYPE_WORD,0x00,CAM_SENSOR_I2C_WRITE_RANDOM,1},
+    },
+    .setting_size = 12,
+    .slave_addr = 0x5a >>1,
+};
+
+/*
+ *return 1 for match. 0 for not match. <0 for error
+ */
+int cam_sensor_match_module_id_s5k4h7(struct cam_sensor_ctrl_t *s_ctrl,
+        struct cam_sensor_i2c_eeprom_moduleid_reg_settings *reg_settings,
+        uint32_t ex_moduleid)
+{
+    int rc = -1,i,j;
+    uint8_t data8[15]={0},flag_mask = 0xc0;
+    uint32_t data_size = 15;
+    uint32_t moduleid = 0;
+    if(cam_sensor_eeprom_read_bytes_suq(s_ctrl,data8,&data_size,reg_settings) <0)
+    {
+        CAM_ERR(CAM_SENSOR,"chenxl read fail");
+        return -1;
+    }
+    CAM_ERR(CAM_SENSOR,"chenxl 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
+            data8[0],data8[1],data8[2],data8[3],data8[4],data8[5]);
+    for(i = 0;i<3;i++)
+    {
+        if((data8[5*i]&flag_mask) == 0x40){
+            CAM_ERR(CAM_SENSOR,"chenxl found group %d",i+1);
+            break;
+        }
+    }
+    if(i >= 3)
+    {
+        CAM_ERR(CAM_SENSOR,"chenxl found no valid group");
+        return -1;
+    }
+	for(j = 4;j>0;j--)
+	{
+		moduleid <<= 8;
+		moduleid |= data8[5*i+j];
+	}
+    rc = (ex_moduleid == moduleid);
+    CAM_ERR(CAM_SENSOR,"chenxl ex_moduleid 0x%x moduleid 0x%x matched rc=%d !!!!!!",ex_moduleid,moduleid,rc);
+    return rc;
+}
+extern int register_hardware_info(const char *name, const char *model);
 int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 {
-	int rc = 0;
-	uint32_t chipid = 0;
-	struct cam_camera_slave_info *slave_info;
-
-	slave_info = &(s_ctrl->sensordata->slave_info);
-
-	if (!slave_info) {
-		CAM_ERR(CAM_SENSOR, " failed: %pK",
-			 slave_info);
-		return -EINVAL;
-	}
-
-	rc = camera_io_dev_read(
+    int rc = 0;
+    uint16_t tmpsid = 0;
+    uint32_t chipid = 0;
+    uint32_t chipid1=0;
+    uint32_t moduleid = 0;
+    struct cam_camera_slave_info *slave_info;
+    static uint8_t module_flag = 0;
+    slave_info = &(s_ctrl->sensordata->slave_info);
+    if (!slave_info) {
+        CAM_ERR(CAM_SENSOR, " failed: %pK",
+                slave_info);
+        return -EINVAL;
+    }
+    if(slave_info->sensor_id == 0x5035)
+	{
+	   rc = camera_io_dev_read(
 		&(s_ctrl->io_master_info),
 		slave_info->sensor_id_reg_addr,
-		&chipid, CAMERA_SENSOR_I2C_TYPE_WORD,
-		CAMERA_SENSOR_I2C_TYPE_WORD);
-
-	CAM_DBG(CAM_SENSOR, "read id: 0x%x expected id 0x%x:",
-			 chipid, slave_info->sensor_id);
-	if (cam_sensor_id_by_mask(s_ctrl, chipid) != slave_info->sensor_id) {
-		CAM_ERR(CAM_SENSOR, "chip id %x does not match %x",
-				chipid, slave_info->sensor_id);
-		return -ENODEV;
+		&chipid, CAMERA_SENSOR_I2C_TYPE_BYTE,
+		CAMERA_SENSOR_I2C_TYPE_BYTE);
+	   rc = camera_io_dev_read(
+		&(s_ctrl->io_master_info),
+		slave_info->sensor_id_reg_addr+1,
+		&chipid1, CAMERA_SENSOR_I2C_TYPE_BYTE,
+		CAMERA_SENSOR_I2C_TYPE_BYTE);
+             chipid=chipid<<8 | chipid1;
 	}
-	return rc;
+	else
+	{
+    rc = camera_io_dev_read(
+            &(s_ctrl->io_master_info),
+            slave_info->sensor_id_reg_addr,
+            &chipid, CAMERA_SENSOR_I2C_TYPE_WORD,
+            CAMERA_SENSOR_I2C_TYPE_WORD);
+
+   }
+    CAM_ERR(CAM_SENSOR, "read id: 0x%x expected id 0x%x:",
+            chipid, slave_info->sensor_id);
+    switch(slave_info->sensor_id)
+    {
+        case 0x487b://8Mrgb lce 0x0a
+            if(cam_sensor_match_module_id_s5k4h7(s_ctrl,&s5k4h7rgb,0x6709c60a)!=1){//0x1563c70a
+                CAM_ERR(CAM_SENSOR, "chip 0x487b module 0x0a does not match");
+                return -ENODEV;
+            }
+            break;
+        case 0x487d://8MIR ofilm 0x07
+            if(chipid == 0x487b)chipid = slave_info->sensor_id;
+            if(cam_sensor_match_module_id_s5k4h7(s_ctrl,&s5k4h7ir,0x1863c707)!=1){
+                CAM_ERR(CAM_SENSOR, "chip 0x487d module 0x1863c707 does not match");
+                return -ENODEV;
+            }
+            break;
+        case 0x487e://8MIR kingcome 0x07
+            if(chipid == 0x487b)chipid = slave_info->sensor_id;
+            if(cam_sensor_match_module_id_s5k4h7(s_ctrl,&s5k4h7ir,0x1763c709)!=1){
+                CAM_ERR(CAM_SENSOR, "chip 0x487e module 0x1763c709 does not match");
+                return -ENODEV;
+            }
+            break;
+        default:
+            break;
+    }
+    if (chipid == 0x0d42)
+    {
+        tmpsid = s_ctrl->io_master_info.cci_client->sid;
+        s_ctrl->io_master_info.cci_client->sid = 0xB0 >> 1;
+        rc = camera_io_dev_read(
+            &(s_ctrl->io_master_info),
+            0x000b,
+            &moduleid, CAMERA_SENSOR_I2C_TYPE_WORD,
+            CAMERA_SENSOR_I2C_TYPE_WORD);
+        s_ctrl->io_master_info.cci_client->sid = tmpsid;
+
+        CAM_ERR(CAM_SENSOR, "ov13b10 module id = 0x%x  sensor_id = 0x%x",
+                moduleid, slave_info->sensor_id);
+        if (moduleid == 0x06d9)
+        {
+	    chipid = 0x0d44;
+            if (chipid != slave_info->sensor_id)
+                return -ENODEV;
+	} else if (moduleid == 0x07d9)
+        {
+            if (chipid != slave_info->sensor_id)
+                return -ENODEV;
+	}
+    }
+    if (cam_sensor_id_by_mask(s_ctrl, chipid) != slave_info->sensor_id) {
+        CAM_ERR(CAM_SENSOR, "chip id %x does not match %x",
+                chipid, slave_info->sensor_id);
+        return -ENODEV;
+    }
+    switch(slave_info->sensor_id)
+    {
+        case 0x487b://8Mrgb lce 0x0a
+            if(!(0x01 & module_flag)){
+                register_hardware_info("cameraFront1","lce_s5k4h7rgb");
+                module_flag = 0x01 | module_flag;
+            }
+            break;
+        case 0x487c://8Mrgb ofilm 0x07
+            if(!(0x01<<1 & module_flag)){
+                register_hardware_info("cameraFront1","ofilm_s5k4h7rgbof");
+                module_flag = 0x01<<1 | module_flag;
+            }
+            break;
+        case 0x487d://8MIR ofilm 0x07
+            if(!(0x01<<2 & module_flag)){
+                register_hardware_info("cameraFront2","ofilm_s5k4h7irof");
+                module_flag = 0x01<<2 | module_flag;
+            }
+            break;
+        case 0x487e://8MIR kingcome 0x07
+            if(!(0x01<<3 & module_flag)){
+                register_hardware_info("cameraFront2","kingcome_s5k4h7irkc");
+                module_flag = 0x01<<3 | module_flag;
+            }
+            break;
+        case 0x0d42://13M ofilm
+            if(!(0x01<<4 & module_flag)){
+                register_hardware_info("cameraRear1","ofilm_ov13b10");
+                module_flag = 0x01<<4 | module_flag;
+            }
+            break;
+        case 0x5035://5M kingcome
+            if(!(0x01<<5 & module_flag)){
+                register_hardware_info("cameraRear2","kingcome_gc5035");
+                module_flag = 0x01<<5 | module_flag;
+            }
+            break;
+        case 0x0d44://13M ofilm
+            if(!(0x01<<6 & module_flag)){
+                register_hardware_info("cameraRear1","qtech_ov13b10");
+                module_flag = 0x01<<6 | module_flag;
+            }
+            break;
+        default:
+            break;
+    }
+    return rc;
 }
 
 int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,

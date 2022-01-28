@@ -19,7 +19,7 @@
 #include "cam_debug_util.h"
 #include "cam_res_mgr_api.h"
 #include "cam_res_mgr_private.h"
-
+struct led_trigger *m_trig=NULL;
 static struct cam_res_mgr *cam_res;
 
 static void cam_res_mgr_free_res(void)
@@ -140,7 +140,7 @@ void cam_res_mgr_led_trigger_event(struct led_trigger *trig,
 {
 	bool found = false;
 	struct cam_flash_res *flash_res;
-
+        m_trig = trig;
 	if (!cam_res) {
 		/*
 		 * If this driver not probed, then just trigger
@@ -163,7 +163,11 @@ void cam_res_mgr_led_trigger_event(struct led_trigger *trig,
 		led_trigger_event(trig, brightness);
 }
 EXPORT_SYMBOL(cam_res_mgr_led_trigger_event);
-
+struct led_trigger *get_trig(void)
+{
+        return m_trig;
+}
+EXPORT_SYMBOL(get_trig);
 int cam_res_mgr_shared_pinctrl_init(void)
 {
 	struct cam_soc_pinctrl_info *pinctrl_info;
