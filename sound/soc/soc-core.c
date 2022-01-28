@@ -1407,6 +1407,9 @@ static int soc_init_dai_link(struct snd_soc_card *card,
 	 * can be left unspecified, and will be matched based on DAI
 	 * name alone..
 	 */
+	 dev_err(card->dev,
+			"ASoC:  cpu_name:%d cpu_of_node: %d link name: %s\n",
+			link->cpu_name, link->cpu_of_node,link->name);
 	if (link->cpu_name && link->cpu_of_node) {
 		dev_err(card->dev,
 			"ASoC: Neither/both cpu name/of_node are set for %s\n",

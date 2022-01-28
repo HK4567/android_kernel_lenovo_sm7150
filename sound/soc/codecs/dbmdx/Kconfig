@@ -1,0 +1,166 @@
+#
+# SoC audio configuration
+#
+
+config SND_SOC_DBMDX
+	bool "DSPG Voice Trigger/Enhancement Chip"
+	default n
+	help
+		DSPG Voice Trigger/Enhancement Chip
+
+config SND_SOC_DBMDX_AEC_REF_32_TO_16_BIT
+	bool "Reference I2S Line format for AEC is 16 out of 32 bit"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Set if Reference I2S Line format for AEC
+		algorithm is  is 16 out of 32 bit
+		(alternative is 16 out of 16 bit)
+
+config SND_SOC_DBMDX_USE_ANALOG_MICS
+	bool "Microphones type is Analog"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Set if Microphones type is Analog
+
+config SND_SOC_DBMDX_USE_DIGITAL_MICS
+ 	bool "Microphones type is Digital"
+ 	depends on SND_SOC_DBMDX
+ 	default n
+ 	help
+  		Set if Microphones type is Digital
+
+config SND_SOC_DBMDX_DBMD2_DRIVES_DCLASS_SPEAKER
+	bool "DBMD2 Chip drives DCLASS speaker"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Set if DBMD2 chip drivers DCLASS speaker
+
+config SND_SOC_DBMDX_I2S_BUFFERING_SUPPORTED
+	bool "Audio buffer is provided via I2S connected to DBMD4"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Set if Audio buffer is provided via I2S connected to DBMD4
+
+config SND_SOC_DBMDX_I2S_STREAMING_SUPPORTED
+	bool "Audio buffer is provided via I2S connected to DBMD2"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Set if Audio buffer is provided via I2S connected to DBMD2
+
+config SND_SOC_DBMDX_VC_I2S_STREAMING_SUPPORTED
+	bool "Audio buffer is provided via I2S connected to DBMD2 in VC usecase"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Set if Audio buffer is provided via I2S connected to DBMD2 in VC usecase
+
+config SND_SOC_DBMDX_I2S_CATCHUP_SUPPORTED
+	bool "I2S Catchup support"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Set if I2S Catchup is supported
+
+config SND_SOC_DBMDX_VT_WHILE_VC_SUPPORTED
+	bool "Voice Trigger functionality During Voice Call"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Set if Voice Trigger functionality During Voice Call is supported
+
+config SND_SOC_DBMDX_VC_RX_PROCESS_SUPPORTED
+	bool "Voice Call RX processing"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Set if RX processing during Voice Call is supported
+
+config SND_SOC_DBMDX_VC_SRATE_16KHZ
+	bool "Voice Call Sample Rate is 16KHz"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Set if Voice Call Sample Rate is 16KHz
+		Otherwise the sample rate is 48KHz
+
+config SND_SOC_DBMDX_MELON_SRATE_48KHZ
+	bool "Melon Usecases Rate is 48KHz"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Set if Melon Usecases Sample Rate is 48Hz
+		Otherwise the sample rate is 16KHz
+
+config SND_SOC_DBMDX_VA_VE_TDM_RX_MASTER
+	bool "DBMD2 is TDM RX Master"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Set if DBMD2 is TDM RX Master
+
+config SND_SOC_DBMDX_QED_SUPPORTED
+	bool "QED support"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Set if QED is supported
+
+
+config SND_SOC_DBMDX_I2S_CAPTURE_DEVICE
+	bool "DSPG I2S Capture Device Support"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		DSPG Capture Device Support
+
+config SND_SOC_DBMDX_SND_CAPTURE
+	bool "DSPG Capture Device Support"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Register DBMDX SOC as a separate sound card.
+		.
+		y - Register DBMDX SOC as separate sound card
+		n - Do not register DBMDX SOC as separate sound card
+
+config SND_SOC_DBMDX_OKG_WWE_SUPPORT
+	bool "Wake Word Detection Engine Is OKG"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Wake Word Detection Engine Is OKG
+
+config SND_SOC_DBMDX_OKG_2_CH_AEC_ONLY
+	bool "Provide 2 Channel AEC for OKG"
+	depends on SND_SOC_DBMDX_OKG_WWE_SUPPORT
+	default n
+	help
+		Provide 2 Channel AEC for OKG
+
+config SND_SOC_DBMDX_SENSORY_WWE_SUPPORT
+	bool "Wake Word Detection Engine Is Sensory"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Wake Word Detection Engine Is Sensory
+
+config SND_SOC_DBMDX_ALEXA_WWE_SUPPORT
+	bool "Wake Word Detection Engine Is Alexa"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Wake Word Detection Engine Is Alexa
+
+
+config SND_SOC_DBMDX_USE_EVBS_CONFIG
+	bool "USE EVBS Rev B board config"
+	depends on SND_SOC_DBMDX
+	default n
+	help
+		Use EVBS RevB configuration
+
