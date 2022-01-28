@@ -615,12 +615,23 @@ static void msm_gpio_dbg_show_one(struct seq_file *s,
 	seq_printf(s, " %s", pulls[pull]);
 }
 
+#define PRINT_ALL_GPIO_STATUS
 static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 {
 	unsigned gpio = chip->base;
 	unsigned i;
+#ifndef PRINT_ALL_GPIO_STATUS
+	const char *label;
+#endif
 
 	for (i = 0; i < chip->ngpio; i++, gpio++) {
+#ifndef PRINT_ALL_GPIO_STATUS
+		label = gpiochip_is_requested(chip, i);
+		if(!label) {
+			continue;
+		}
+#endif
+		if((i != 59)  && (i != 60)  && (i != 61)  && (i != 62) )
 		msm_gpio_dbg_show_one(s, NULL, chip, i, gpio);
 		seq_puts(s, "\n");
 	}
