@@ -1810,5 +1810,7 @@ int snd_soc_component_force_enable_pin(struct snd_soc_component *component,
 int snd_soc_component_force_enable_pin_unlocked(
 					struct snd_soc_component *component,
 					const char *pin);
+void ac108_start(void);
+void ac108_stop(void);
 
 #endif

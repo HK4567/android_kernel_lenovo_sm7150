@@ -96,7 +96,11 @@ struct mmc_command {
 
 	unsigned int		retries;	/* max number of retries */
 	int			error;		/* command error */
-
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+#ifdef CONFIG_MMC_SDHCI_MSM_BH201
+	unsigned int		err_int_mask;	//bh201
+#endif
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
 /*
  * Standard errno values are used for errors, but some have specific
  * meaning in the MMC layer:
@@ -112,6 +116,11 @@ struct mmc_command {
  */
 
 	unsigned int		busy_timeout;	/* busy detect timeout in ms */
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+#ifdef CONFIG_MMC_SDHCI_MSM_BH201
+	unsigned int		sw_cmd_timeout;
+#endif
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
 	/* Set this flag only for blocking sanitize request */
 	bool			sanitize_busy;
 	/* Set this flag only for blocking bkops request */
@@ -129,6 +138,11 @@ struct mmc_data {
 	unsigned int		blk_addr;	/* block address */
 	int			error;		/* data error */
 	unsigned int		flags;
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+#ifdef CONFIG_MMC_SDHCI_MSM_BH201
+	unsigned int		err_int_mask;
+#endif
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
 
 #define MMC_DATA_WRITE		BIT(8)
 #define MMC_DATA_READ		BIT(9)

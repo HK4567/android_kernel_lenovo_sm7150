@@ -597,6 +597,9 @@ struct hid_device {							/* device report descriptor */
 	struct list_head debug_list;
 	spinlock_t  debug_list_lock;
 	wait_queue_head_t debug_wait;
+	bool inputregister;
+	bool tpdhwinforeg;
+	bool kbhwinforeg;
 };
 
 #define to_hid_device(pdev) \
