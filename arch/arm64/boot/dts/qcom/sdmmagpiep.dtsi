@@ -17,3 +17,12 @@
 	qcom,msm-name = "SDMMAGPIEP";
 	qcom,msm-id = <366 0>;
 };
+&soc {
+	qcom,rmnet-ipa {
+		status = "disabled";
+	};
+};
+
+&ipa_hw {
+	status = "disabled";
+};

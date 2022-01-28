@@ -24,6 +24,47 @@
 		#include "qg-batterydata-alium-3600mah.dtsi"
 		#include "qg-batterydata-mlp466076-3200mah.dtsi"
 	};
+	lenovo,hardware_info {
+		compatible = "lenovo,hardware_info";
+		io-channels = <&pm6150_vadc ADC_GPIO1_PU2>;
+		io-channel-names = "hwid_gpio1";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hwid_gpio6 &hwid_gpio7>;
+		hwid-gpio6 = <&pm6150_gpios 6 0>;
+		hwid-gpio7 = <&pm6150_gpios 7 0>;
+		status = "ok";
+	};
+	goodix_fp {
+			compatible = "goodix,fingerprint";
+			interrupt-parent = <&tlmm>;
+			fp-gpio-irq = <&tlmm 90 0x00>;
+			fp-gpio-reset = <&tlmm 91 0x00>;
+			fp-gpio-envdd = <&tlmm 23 0x00>;
+			status = "okay";
+	};
+	hall {
+		compatible = "hall-switch";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hall_sensor_int>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <93 0x2003>;
+		vddio-supply = <&pm6150l_l8>;
+		linux,gpio-int = <&tlmm 93 0x1>;
+		linux,wakeup;
+		linux,min-uv = <1650000>;
+		linux,max-uv = <3300000>;
+	};
+};
+&wdog {
+	qcom,bark-time = <18000>;
+};
+
+&pm6150_vadc {
+	gpio1_pu2 {
+		reg = <ADC_GPIO1_PU2>;
+		label = "gpio1_pu2";
+		qcom,pre-scaling = <1 1>;
+	};
 };
 
 &qupv3_se8_2uart {
@@ -67,7 +108,19 @@
 
 &qupv3_se2_i2c {
 	status = "ok";
-	qcom,clk-freq-out = <1000000>;
+	qcom,clk-freq-out = <400000>;
+	 ptp: ptp@60{
+		       compatible = "hid-over-i2c";
+		       reg = <0x60>;
+		    /* pinctrl-names = "default";
+		       pinctrl-0 = <&cpu1_dig_irq_l &cpu1_dig_pdct_l>;*/
+	           vdd-supply = <&pm6150_l16>;
+	           post-power-on-delay-ms = <100>;
+	           interrupt-parent = <&tlmm>;
+	           interrupts = <4 0x2002>;
+	           hid-descr-addr = <0x0001>;
+		    };
+	/*
 	nq@28 {
 		compatible = "qcom,nq-nci";
 		reg = <0x28>;
@@ -84,7 +137,7 @@
 				&nfc_clk_req_active>;
 		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend
 				&nfc_clk_req_suspend>;
-	};
+	};*/
 };
 
 &sdhc_1 {
@@ -109,6 +162,7 @@
 	vdd-supply = <&pm6150l_l9>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
 	qcom,vdd-current-level = <0 800000>;
+	qcom,vdd-always-on;
 
 	vdd-io-supply = <&pm6150l_l6>;
 	qcom,vdd-io-voltage-level = <1800000 2950000>;
@@ -118,11 +172,34 @@
 	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
 	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
 
-	cd-gpios = <&tlmm 69 GPIO_ACTIVE_LOW>;
+	cd-gpios = <&tlmm 69 GPIO_ACTIVE_HIGH>;
 
 	status = "ok";
 };
 
+&sm6150_snd {
+	qcom.msm-dmic1en-gpio=<&tlmm 100 1>;
+	qcom.msm-dmic2en-gpio=<&tlmm 99 1>;
+	qcom,msm-dmic-sel-gpio = <&pm6150l_gpios 6 0>;
+};
+
+&dsi_rm69380_edo_amoled_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <2047>;	// 11bit
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
+};
+
+&dsi_rm69380_edo_amoled_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <2047>;	// 11bit
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
+};
 &dsi_sw43404_amoled_video {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
@@ -299,9 +376,20 @@
 	qcom,platform-en-gpio = <&pm6150l_gpios 4 0>;
 	qcom,platform-bklight-en-gpio = <&pm6150l_gpios 5 0>;
 };
-
+&fsa4480 {
+	status = "disabled";
+};
 &sde_dp {
-	qcom,dp-aux-switch = <&fsa4480>;
+/*  	for gpio switch*/
+
+	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
+	pinctrl-0 = <&sde_dp_aux_active &sde_dp_usbplug_cc_active>;
+	pinctrl-1 = <&sde_dp_aux_suspend &sde_dp_usbplug_cc_suspend>;
+	qcom,aux-en-gpio = <&tlmm 25 0>;
+	qcom,aux-sel-gpio = <&tlmm 33 0>;
+	qcom,dp-gpio-aux-switch;
+
+	//qcom,dp-aux-switch = <&redriver>;
 };
 
 &qupv3_se7_i2c {
@@ -326,6 +414,7 @@
 		st,regulator_avdd = "avdd";
 		st,x-flip;
 		st,y-flip;
+		status = "disabled";
 	};
 
 	synaptics_dsx@20 {
@@ -351,12 +440,30 @@
 		synaptics,reset-delay-ms = <200>;
 		synaptics,reset-on-state = <0>;
 		synaptics,reset-active-ms = <20>;
+		status = "disabled";
+	};
+	goodix-gt738x@5d {
+		compatible = "goodix,gt738x";
+		reg = <0x5d>;
+		goodix,reset-gpio = <&tlmm 8 0x0>;
+		goodix,irq-gpio = <&tlmm 9 0x2008>;
+		goodix,irq-flags = <2>; /* 1:trigger rising, 2:trigger falling;*/
+		goodix,panel-max-x = <2560>;
+		goodix,panel-max-y = <1600>;
+		goodix,panel-max-w = <2368>;
+		goodix,avdd-name ="avdd";
+		goodix,avdd-en-gpio =<&pm6150l_gpios 7 0>;
+		avdd-supply = <&pm6150l_l7>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend", "pmx_ts_release","avddengpio";
+		pinctrl-0 = <&ts_active &gpio7_avdden_out_default>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
 	};
 };
 
 &pm6150_qg {
 	qcom,battery-data = <&mtp_batterydata>;
-	qcom,qg-iterm-ma = <100>;
+	qcom,qg-iterm-ma = <450>;
 	qcom,hold-soc-while-full;
 	qcom,linearize-soc;
 	qcom,cl-feedback-on;
@@ -378,17 +485,29 @@
 			   "sbux_res",
 			   "vph_voltage";
 	qcom,battery-data = <&mtp_batterydata>;
-	qcom,auto-recharge-soc = <98>;
-	qcom,step-charging-enable;
+	/*qcom,auto-recharge-soc = <95>;*/
+	qcom,auto-recharge-vbat-mv = <4330>;
+	#qcom,step-charging-enable;
 	qcom,sw-jeita-enable;
-	qcom,fcc-stepping-enable;
-	qcom,suspend-input-on-debug-batt;
-	qcom,sec-charger-config = <3>;
+	#qcom,fcc-stepping-enable;
+	#qcom,suspend-input-on-debug-batt;
+	qcom,sec-charger-config = <1>;
 	qcom,thermal-mitigation = <4200000 3500000 3000000
 			2500000 2000000 1500000 1000000 500000>;
 	dpdm-supply = <&qusb_phy0>;
 	qcom,charger-temp-max = <800>;
 	qcom,smb-temp-max = <800>;
+	qcom,chg-term-src = <1>;
+	qcom,chg-term-current-ma = <(-400)>;
+	qcom,usb-icl-ua = <2000000>;
+	qcom,float-option = <2>;
+	qcom,boost_en=<&pm6150l_gpios 11 0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pogo_gpio>;
+	qcom,pogo_det-gpio=<&tlmm 94 0>;
+	qcom,typec_det-gpio=<&tlmm 66 0>;
+	qcom,pogo_en-gpio=<&tlmm 65 0>;
+	qcom,typec_en-gpio=<&tlmm 74 0>;
 };
 
 &pm6150_gpios {
@@ -402,22 +521,87 @@
 			power-source = <0>;
 		};
 	};
+
+	hwid {
+		hwid_gpio6: hwid_gpio6 {
+			pins = "gpio6";
+			function = "normal";
+			input-enable;
+			bias-no-pull;
+			power-source = <0>;
+		};
+
+		hwid_gpio7: hwid_gpio7 {
+			pins = "gpio7";
+			function = "normal";
+			input-enable;
+			bias-no-pull;
+			power-source = <0>;
+		};
+	};
 };
 
 &qupv3_se9_i2c {
 	status = "ok";
 	#include "smb1390.dtsi"
 	#include "smb1355.dtsi"
+	bq27541@55 {
+		compatible = "ti,bq27541";
+		reg = <0x55>;
+	};
+	redriver:redriver@19 {
+                compatible = "onnn,redriver";
+                reg = <0x19>;
+                extcon = <&pm6150_pdphy>, <&pm6150_pdphy>;
+		eq = /bits/ 8 <
+				/* Parameters for USB */
+				0x7 0x4 0x4 0x7
+				/* Parameters for DP */
+				0x6 0x4 0x4 0x6>;
+		flat-gain = /bits/ 8 <
+				/* Parameters for USB */
+				0x3 0x1 0x1 0x3
+				/* Parameters for DP */
+				0x0 0x3 0x3 0x0>;
+		output-comp = /bits/ 8 <
+				/* Parameters for USB */
+				0x3 0x3 0x3 0x3
+				/* Parameters for DP */
+				0x3 0x3 0x3 0x3>;
+		loss-match = /bits/ 8 <
+				/* Parameters for USB */
+				0x1 0x3 0x3 0x1
+				/* Parameters for DP */
+				0x2 0x2 0x2 0x2>;
+        };
+	keyboard:  keyboard@61 {
+			      compatible = "hid-over-i2c";
+			      reg = <0x61>;
+		          vdd-supply = <&pm6150_l16>;
+		          post-power-on-delay-ms = <100>;
+		          interrupt-parent = <&tlmm>;
+		          interrupts = <5 0x2002>;
+		          hid-descr-addr = <0x0001>;
+		         };
+
+	fan49103:fan49103@70 {
+		compatible = "onsemi,fan49103";
+		reg = <0x70>;
+		onsemi,pwrgood-gpio = <&pm6150l_gpios 1 0>;
+		interrupt-parent = <&spmi_bus>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&fan_irq_pins_default>;
+	};
 };
 
 &smb1355 {
 	/delete-property/ interrupts;
 	interrupts = <0x0 0xc2 0x0 IRQ_TYPE_LEVEL_LOW>;
-	status = "ok";
+	status = "disabled";
 };
 
 &smb1355_charger {
-	status = "ok";
+	status = "disabled";
 };
 
 &smb1390 {
@@ -445,7 +629,16 @@
 			power-source = <0>;
 		};
 	};
-};
+	tp_avdden {
+		gpio7_avdden_out_default:gpio7_avdden_out_default{
+			pins = "gpio7";
+			function = "normal";
+			power-source = <1>;
+			ouput-low;
+			input-disable;
+			    };
+			};
+		};
 
 &soc {
 	gpio_keys {

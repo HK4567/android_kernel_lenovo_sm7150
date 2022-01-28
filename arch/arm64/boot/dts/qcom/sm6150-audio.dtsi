@@ -60,6 +60,7 @@
 
 &q6core {
 	sm6150_snd: sound {
+		status="okay";
 		compatible = "qcom,sm6150-asoc-snd";
 		qcom,mi2s-audio-intf = <1>;
 		qcom,auxpcm-audio-intf = <1>;

@@ -13,7 +13,7 @@
 
 /dts-v1/;
 /plugin/;
-
+/*
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "sdmmagpie-idp.dtsi"
@@ -26,3 +26,4 @@
 	qcom,msm-id = <365 0x0>;
 	qcom,board-id = <34 1>;
 };
+*/

@@ -292,8 +292,9 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1096000>;
 			regulator-max-microvolt = <1304000>;
-			qcom,init-voltage = <1096000>;
+			qcom,init-voltage = <1196000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+			regulator-always-on;
 		};
 	};
 
@@ -423,9 +424,9 @@
 		L13A: pm6150_l13: regulator-pm6150-l13 {
 			regulator-name = "pm6150_l13";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <1696000>;
+			regulator-min-microvolt = <1904000>;
 			regulator-max-microvolt = <1904000>;
-			qcom,init-voltage = <1696000>;
+			qcom,init-voltage = <1904000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};
 	};
@@ -480,9 +481,9 @@
 		L16A: pm6150_l16: regulator-pm6150-l16 {
 			regulator-name = "pm6150_l16";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <2424000>;
-			regulator-max-microvolt = <2976000>;
-			qcom,init-voltage = <2424000>;
+			regulator-min-microvolt = <3232000>;
+			regulator-max-microvolt = <3304000>;
+			qcom,init-voltage = <3300000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};
 	};
@@ -805,8 +806,25 @@
 		L2F: pm8009_l2: regulator-pm8009-l2 {
 			regulator-name = "pm8009_l2";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <1050000>;
-			regulator-max-microvolt = <1050000>;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			qcom,init-voltage = <1200000>;
+			qcom,init-enable = <1>;
+		};
+	};
+
+        rpmh-regulator-ldof3 {
+		compatible = "qcom,rpmh-xob-regulator";
+		mboxes = <&apps_rsc 0x0>;
+		qcom,resource-name = "ldof3";
+
+		L3F: pm8009_l3: regulator-pm8009-l3 {
+		regulator-name = "pm8009_l3";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			qcom,init-voltage = <1200000>;
+			qcom,init-enable = <1>;
 		};
 	};
 

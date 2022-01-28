@@ -121,8 +121,13 @@
 		dai_mi2s2: qcom,msm-dai-q6-mi2s-tert {
 			compatible = "qcom,msm-dai-q6-mi2s";
 			qcom,msm-dai-q6-mi2s-dev-id = <2>;
-			qcom,msm-mi2s-rx-lines = <0>;
-			qcom,msm-mi2s-tx-lines = <3>;
+			qcom,msm-mi2s-rx-lines = <1>;
+			qcom,msm-mi2s-tx-lines = <2>;
+/*			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&ter_i2s_sck_active &ter_i2s_data0_active
+				&ter_i2s_data1_active>;
+			pinctrl-1 = <&ter_i2s_sck_sleep &ter_i2s_data0_sleep
+				&ter_i2s_data1_sleep>; */
 		};
 
 		dai_mi2s3: qcom,msm-dai-q6-mi2s-quat {

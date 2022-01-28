@@ -26,6 +26,6 @@
 	qcom,board-id = <34 0>;
 };
 
-&dsi_sw43404_amoled_video_display {
+&dsi_rm69380_edo_amoled_cmd_display {
 	qcom,dsi-display-active;
 };
