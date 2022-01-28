@@ -44,6 +44,10 @@
 				qcom,pon-type = <PON_POWER_ON_TYPE_KPDPWR>;
 				qcom,pull-up;
 				linux,code = <KEY_POWER>;
+				qcom,support-reset = <1>;
+				qcom,s1-timer = <6720>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <4>;
 			};
 
 			qcom,pon_2 {
@@ -409,16 +413,19 @@
 			compatible = "qcom,qpnp-qg";
 			#address-cells = <1>;
 			#size-cells = <1>;
+			status = "ok";
 
 			qcom,vbatt-cutoff-mv = <3200>;
 			qcom,vbatt-low-mv = <3300>;
 			qcom,vbatt-low-cold-mv = <3700>;
 			qcom,vbatt-empty-mv = <3000>;
 			qcom,vbatt-empty-cold-mv = <3000>;
-			qcom,s3-entry-fifo-length = <2>;
+			qcom,s3-entry-fifo-length = <1>;
+			qcom,s3-entry-ibat-ua = <25000>;
+			qcom,s3-exit-ibat-ua = <38000>;
 
 			qcom,pmic-revid = <&pm6150_revid>;
-			io-channels = <&pm6150_vadc ADC_BAT_THERM_PU2>,
+			io-channels = <&pm6150_vadc ADC_BAT_THERM_PU1>,
 				      <&pm6150_vadc ADC_BAT_ID_PU2>;
 			io-channel-names = "batt-therm",
 					   "batt-id";
@@ -489,10 +496,11 @@
 					<0x0 0xc1 0 IRQ_TYPE_NONE>,
 					<0x0 0xc2 0 IRQ_TYPE_NONE>,
 					<0x0 0xc3 0 IRQ_TYPE_NONE>,
+					<0x0 0xc5 0 IRQ_TYPE_NONE>,
 					<0x0 0xc6 0 IRQ_TYPE_NONE>,
 					<0x0 0xc7 0 IRQ_TYPE_NONE>;
 			interrupt-names = "pm6150_gpio1", "pm6150_gpio2",
-					"pm6150_gpio3", "pm6150_gpio4",
+					"pm6150_gpio3", "pm6150_gpio4", "pm6150_gpio6",
 					"pm6150_gpio7", "pm6150_gpio8";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -526,7 +534,7 @@
 		pm6150_vib: qcom,vibrator@5300 {
 			compatible = "qcom,qpnp-vibrator-ldo";
 			reg = <0x5300 0x100>;
-			qcom,vib-ldo-volt-uv = <3000000>;
+			qcom,vib-ldo-volt-uv = <3200000>;
 			qcom,disable-overdrive;
 		};
 	};
@@ -584,7 +592,7 @@
 
 		trips {
 			ibat_lvl1:ibat-lvl1 {
-				temperature = <6000>;
+				temperature = <10000>;
 				hysteresis = <200>;
 				type = "passive";
 			};

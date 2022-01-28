@@ -1,0 +1,223 @@
+#include <dt-bindings/sound/dbmdx-va-regmap.h>
+
+#define DBMDX_QED_SUPPORTED		0
+/* Model Support */
+#define DBMDX_OKG_WWE_SUPPORT		1
+#define DBMDX_SENSORY_WWE_SUPPORT	0
+#define DBMDX_AMAZON_WWE_SUPPORT	1
+
+#define DBMDX_LARGE_AMODEL_SUPPORT	1
+
+/* Chip Type */
+#define DBMDX_VA_CHIP_TYPE_D4P		1
+
+/* Master Clock */
+#define DBMDX_MCLOCK_VA_32KHZ		1
+#define DBMDX_MCLOCK_VA_12MHZ		0
+#define DBMDX_MCLOCK_VA_24MHZ		0
+
+/* Wakeup support */
+#define DBMDX_WAKEUP_VA_ENABLED		1
+#define DBMDX_LOW_POWER_MODE_ENABLED	1
+
+#define DBMDX_USE_ANALOG_MICS		0
+
+#define DBMDX_USE_RC_OSC		1
+
+&qupv3_se11_spi {
+		status = "okay";
+		dbmd8_spi:dbmd8_interface@0x0  {
+			compatible = "dspg,dbmd8-spi";
+			reg = <0>;
+			spi-max-frequency = <125000000>;
+			read-chunk-size  = <0x2000> ;
+			write-chunk-size = <0x8000> ;
+			dma_min_buffer_size = <0>;
+		};
+
+};
+/*
+&dai_mi2s0{
+			status = "okay";
+			qcom,msm-mi2s-rx-lines = <1>;
+			qcom,msm-mi2s-tx-lines = <2>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&pri_i2s_sck_active &pri_i2s_ws_active &pri_i2s_data0_active
+				&pri_i2s_data1_active>;
+			pinctrl-1 = <&pri_i2s_sck_sleep &pri_i2s_ws_sleep &pri_i2s_data0_sleep
+				&pri_i2s_data1_sleep>; 
+	};
+*/
+&soc {
+
+	 dbmdx-snd-soc-platform {
+                   compatible = "dspg,dbmdx-snd-soc-platform";
+         };
+
+         snd-dbmdx-mach-drv {
+                   compatible = "dspg,snd-dbmdx-mach-drv";
+         };
+
+	dbmdx {
+		status = "okay";
+		compatible = "dspg,dbmdx-codec";
+		reset_gpio_shared = <0>;
+		reset-gpio = <&tlmm 2 0>;
+		#sv-gpio = <&tlmm 23 0>;
+		wakeup-gpio = <&tlmm 36 0>; 
+		auto_buffering = <1>;
+		multi-interface-support = <1>;
+		cd-interfaces = < &dbmd8_spi >;
+		va-interfaces = <0 0 0 0>;
+		feature-va_ve; /* enable VA_VE */
+		va-firmware-name = "dbmd8_va_fw.bin";
+		va-preboot-firmware-name = "dbmd8_va_preboot_fw.bin";
+		va-config =	<DBMDX_VA_EMPTY_CMD
+				DBMDX_VA_EMPTY_CMD
+				DBMDX_VA_EMPTY_CMD
+				(DBMDX_REGN_HOST_INTERFACE_SUPPORT |
+					DBMDX_REGV_SPI_D2_TDM1_D4_GPIO_4_5_6_7)
+				(DBMDX_REGN_MASTER_CLOCK_FREQUENCY |
+#if DBMDX_MCLOCK_VA_24MHZ
+					DBMDX_REGV_MCLK_24576000Hz)
+#elif DBMDX_MCLOCK_VA_12MHZ
+					DBMDX_REGV_MCLK_12288000Hz)
+#else /* 32KHZ */
+					DBMDX_REGV_MCLK_32768Hz)
+#endif
+				(DBMDX_REGN_AUDIO_BUFFER_SIZE |
+					DBMDX_REGV_AUDIO_BUFFER_3_SEC)
+				(DBMDX_REGN_GENERAL_CONFIG_1 |
+#ifdef DBMDX_USE_RC_OSC
+					DBMDX_REGV_DSP_CLK_GEN_RC_OSC |
+#else
+					DBMDX_REGV_DSP_CLK_GEN_PLL |
+#endif
+					DBMDX_REGV_IF_REQUIRED_WAKEUP |
+					DBMDX_REGV_SPLIT_MIC_BUFFER |
+					DBMDX_REGV_MAX_NUMBER_OF_MIC_IS_2)
+																												  
+				(DBMDX_REGN_MEMORY_CONFIG |
+					DBMDX_REGV_AMODEL_0_LOC_DTCM |
+					DBMDX_REGV_AMODEL_1_LOC_DTCM |
+					DBMDX_REGV_AMODEL_4_LOC_DTCM |
+					DBMDX_REGV_AUDIO_BUF_LOC_DTCM_USING_MEM_ALLOCATION |
+#if DBMDX_OKG_WWE_SUPPORT && DBMDX_AMAZON_WWE_SUPPORT
+					DBMDX_REGV_AHB_ON_SIZE_192KW_32KW_CACHE_D8 |
+#else
+					DBMDX_REGV_AHB_ON_SIZE_112KW_32KW_CACHE |
+#endif
+					DBMDX_REGV_DTCM_SIZE_D4_D6_96_KW_D8_192KW)
+
+				(DBMDX_REGN_GENERAL_CONFIG_2 |
+					DBMDX_REGV_MIC_SAMPLE_RATE_16K |
+					DBMDX_REGV_DDF_SAMPLE_WIDTH_16_BIT |
+					DBMDX_REGV_FW_VAD_TYPE_NO_VAD)
+#if DBMDX_USE_ANALOG_MICS
+				(DBMDX_REGN_HPF_ENABLE_DISABLE |
+					0x0013)
+#else
+				(DBMDX_REGN_HPF_ENABLE_DISABLE |
+					0x0010 |
+					DBMDX_REGV_IIR_HPF_EN |
+					DBMDX_REGV_DC_REMOVE_COARSE_EN)
+#endif
+/*
+				(DBMDX_REGN_GPIO_CONFIG |
+					DBMDX_REGV_SET_SEC_GPIO |
+					DBMDX_REGV_SEC_MODEL_DET_GPIO_NUM_12 |
+					DBMDX_REGV_SET_PRI_GPIO |
+					DBMDX_REGV_PRI_MODEL_DET_GPIO_NUM_12 ) */
+				(DBMDX_REGN_DSP_CLOCK_CONFIG | 0xf000
+#if 0
+#if DBMDX_MCLOCK_VA_24MHZ
+					DBMDX_REGV_PLL_STEP_3 |
+#elif DBMDX_MCLOCK_VA_12MHZ
+					DBMDX_REGV_PLL_STEP_6 |
+#else /* 32Khz */
+					DBMDX_REGV_PLL_STEP_4 |
+#endif
+					DBMDX_REGV_TL3_DIV_1 |
+					DBMDX_REGV_APB_DIV_1 |
+					DBMDX_REGV_AHB_DIV_3
+#endif
+                             )
+                             (DBMDX_REGN_DSP_CLOCK_CONFIG_EXTENSION | 0x0010 )
+
+				(DBMDX_VA_MSLEEP | 0x0040)
+				(DBMDX_REGN_UART_SPEED |
+					DBMDX_REGV_UART_BAUD_RATE_3_Mhz)
+#ifdef DBMDX_USE_ANALOG_MICS
+				(DBMDX_REGN_FIRST_MICROPHONE_CONFIG | 0xf261
+					/*DBMDX_REGV_DDF_AUDIO_ATTENUATION_0dB |
+					DBMDX_REGV_DDF_AND_DM_CONFIG_SAR_DDF_SAR_ADC*/)
+				(DBMDX_REGN_SECOND_MICROPHONE_CONFIG |0x5264
+					/*DBMDX_REGV_DDF_AUDIO_ATTENUATION_0dB |
+					DBMDX_REGV_DM_CLK_FREQ_1536_1200_SR_8KHz_16KHz_32KHz_48KHz |
+					DBMDX_REGV_DDF_AND_DM_CONFIG_SD_DDF_SD_ADC*/)
+#else
+				(DBMDX_REGN_FIRST_MICROPHONE_CONFIG | 0xf261
+					/*DBMDX_REGV_DM_CLOCK_SRC_DM0_GPIO8_DM1_GPIO14 |
+		 			DBMDX_REGV_DM_DATA_SRC_DM0_GPIO9_DM1_GPIO13 |
+		 			DBMDX_REGV_DDF_AUDIO_ATTENUATION_0dB |
+					DBMDX_REGV_DM_CLK_FREQ_1536_1200_SR_8KHz_16KHz_32KHz_48KHz |
+					DBMDX_REGV_CLOCK_POLARITY_FALLING_EDGE |
+					DBMDX_REGV_DDF_AND_DM_CONFIG_DDF0_DM0*/)
+				(DBMDX_REGN_SECOND_MICROPHONE_CONFIG | 0x5264
+					/*DBMDX_REGV_DM_CLOCK_SRC_DM0_GPIO8_DM1_GPIO14 |
+					DBMDX_REGV_DM_DATA_SRC_DM0_GPIO9_DM1_GPIO13 |
+					DBMDX_REGV_DDF_AUDIO_ATTENUATION_0dB |
+					DBMDX_REGV_DM_CLK_FREQ_1536_1200_SR_8KHz_16KHz_32KHz_48KHz |
+					DBMDX_REGV_CLOCK_POLARITY_RISING_EDGE |
+					DBMDX_REGV_DDF_AND_DM_CONFIG_DDF1_DM0*/)
+#endif
+				(DBMDX_VA_MSLEEP | 0x64)
+				(DBMDX_REGN_SECOND_MICROPHONE_CONFIG |
+					DBMDX_REGV_CLOSING_MICS_NO_DM_CLOCK)
+				(DBMDX_REGN_FIRST_MICROPHONE_CONFIG |
+					DBMDX_REGV_CLOSING_MICS_NO_DM_CLOCK)
+
+				DBMDX_VA_EMPTY_CMD
+				DBMDX_VA_EMPTY_CMD
+				DBMDX_VA_EMPTY_CMD>;
+
+		va-speeds = <0x0000 460800  0 1000000
+			     0x0000 2000000 0 3000000
+			     0x0000 3000000 0 5000000>;
+		va-mic-config = <0xf261 0x5264 0x0A68>;
+		va_ve-mic-config = <0x5076 0xa061 0xa093 0x0000>;
+              va-mic-mode = <2>;
+		master-clk-rate = <32768>;
+		default_va_clock = <98304000>;
+		/* constant-clk-rate = <32768>; */
+		auto_detection = <1>;
+		firmware_id = <0xdbd8>;
+		wakeup_disabled = <0>;
+		use_gpio_for_wakeup = <1>; /* Use wakeup gpio */
+		send_wakeup_seq = <0>; /* Send wakup seq */
+		wakeup_set_value = <0>;
+
+		uart_low_speed_enabled = <1>;
+		detection_buffer_channels = <0>;
+		pcm_streaming_mode = <1>;
+		boot_options = <0x220>; /* Verify chip id */
+		send_uevent_on_detection = <1>;
+		send_uevent_after_buffering = <1>;
+		detection_after_buffering = <2>;
+		#change_clock_src_options = <0x4003>;
+		change_clock_src_options = <0x0>;
+		va_backlog_length = <502>;
+		qed_enabled = <0>;
+		low_power_mode_disabled = <0>;
+		hw_revision = <0>;
+		project_sub_type = <1>;	/* VT ONLY - MELON */
+		buffering_timeout = <5>;
+		default-streaming-usecase-name = "uc_melon_ga_2mic_aec_48k";
+		alsa_streaming_options = <0x8>;
+		asrp_tx_out_gain = <0x0b38>; /* gain=15: (int)((10^(gain/20))*2048) */
+		asrp_vcpf_out_gain = <0x0b38>; /* gain=15: (int)((10^(gain/20))*2048) */
+		asrp_rx_out_gain = <0x059f>; /* gain=15: (int)((10^(gain/20))*2048) */
+		asrp_delay = <1>;
+		amodel_options = <1>;
+	};
+};

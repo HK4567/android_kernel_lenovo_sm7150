@@ -12,7 +12,7 @@
  */
 
 #include "atoll-audio-overlay.dtsi"
-
+/*
 &wcd937x_codec {
 	status = "ok";
 };
@@ -28,7 +28,7 @@
 &wcd937x_tx_slave {
 	status = "ok";
 };
-
+*/
 &wcd938x_rx_slave {
 	status = "disabled";
 };

@@ -14,9 +14,10 @@
 #include "sm6150-lpi.dtsi"
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
 #include <dt-bindings/sound/audio-codec-port-types.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 
 &bolero {
-	qcom,num-macros = <4>;
+	qcom,num-macros = <3>;
 	qcom,va-without-decimation;
 	slew_rate_reg1 = <0x62B6F000 0x0>;
 	slew_rate_reg2 = <0x62B6F004 0x0>;
@@ -50,10 +51,10 @@
 			qcom,swr-num-dev = <1>;
 			qcom,swr-clock-stop-mode0 = <1>;
 			qcom,swr-mstr-irq-wakeup-capable = <1>;
-			wcd937x_tx_slave: wcd937x-tx-slave {
+	/*		wcd937x_tx_slave: wcd937x-tx-slave {
 				compatible = "qcom,wcd937x-slave";
 				reg = <0x0 0x01170223>;
-			};
+			}; */
 		};
 	};
 
@@ -82,65 +83,15 @@
 				<5 DSD_R 0x2>;
 			qcom,swr-num-dev = <1>;
 			qcom,swr-clock-stop-mode0 = <1>;
-			wcd937x_rx_slave: wcd937x-rx-slave {
+	/*		wcd937x_rx_slave: wcd937x-rx-slave {
 				compatible = "qcom,wcd937x-slave";
 				reg = <0x0 0x01170224>;
-			};
+			}; */
 		};
 	};
 
 	wsa_macro: wsa-macro@62f00000 {
-		compatible = "qcom,wsa-macro";
-		reg = <0x62f00000 0x0>;
-		clock-names = "wsa_core_clk", "wsa_npl_clk";
-		clocks = <&clock_audio_wsa_1 0>,
-			 <&clock_audio_wsa_2 0>;
-		qcom,wsa-swr-gpios = <&wsa_swr_gpios>;
-		qcom,wsa-bcl-pmic-params = /bits/ 8 <0x00 0x00 0x1E>;
-		swr0: wsa_swr_master {
-			compatible = "qcom,swr-mstr";
-			#address-cells = <2>;
-			#size-cells = <0>;
-			qcom,swr_master_id = <1>;
-			swrm-io-base = <0x62f10000 0x0>;
-			interrupts = <0 136 0>;
-			interrupt-names = "swr_master_irq";
-			qcom,swr-num-ports = <8>;
-			qcom,swr-port-mapping = <1 SPKR_L 0x1>,
-				<2 SPKR_L_COMP 0xF>, <3 SPKR_L_BOOST 0x3>,
-				<4 SPKR_R 0x1>, <5 SPKR_R_COMP 0xF>,
-				<6 SPKR_R_BOOST 0x3>, <7 SPKR_L_VI 0x3>,
-				<8 SPKR_R_VI 0x3>;
-			qcom,swr-num-dev = <2>;
-			wsa881x_0211: wsa881x@20170211 {
-				compatible = "qcom,wsa881x";
-				reg = <0x0 0x20170211>;
-				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
-				qcom,bolero-handle = <&bolero>;
-			};
-
-			wsa881x_0212: wsa881x@20170212 {
-				compatible = "qcom,wsa881x";
-				reg = <0x0 0x20170212>;
-				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
-				qcom,bolero-handle = <&bolero>;
-			};
-
-			wsa881x_0213: wsa881x@21170213 {
-				compatible = "qcom,wsa881x";
-				reg = <0x0 0x21170213>;
-				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
-				qcom,bolero-handle = <&bolero>;
-			};
-
-			wsa881x_0214: wsa881x@21170214 {
-				compatible = "qcom,wsa881x";
-				reg = <0x0 0x21170214>;
-				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
-				qcom,bolero-handle = <&bolero>;
-			};
-		};
-
+		status="disabled";
 	};
 
 	va_macro: va-macro@62f20000 {
@@ -165,9 +116,8 @@
 			<3 DMIC5 0x8 0 DMIC7>;
 
 		qcom,wcd-rst-gpio-node = <&wcd937x_rst_gpio>;
-		qcom,rx-slave = <&wcd937x_rx_slave>;
-		qcom,tx-slave = <&wcd937x_tx_slave>;
-
+	/*	qcom,rx-slave = <&wcd937x_rx_slave>;
+		qcom,tx-slave = <&wcd937x_tx_slave>; */
 		cdc-vdd-ldo-rxtx-supply = <&L10A>;
 		qcom,cdc-vdd-ldo-rxtx-voltage = <1800000 1800000>;
 		qcom,cdc-vdd-ldo-rxtx-current = <25000>;
@@ -197,20 +147,25 @@
 };
 
 &sm6150_snd {
+	status="okay";
 	qcom,model = "sm6150-idp-snd-card";
-	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
+	qcom,msm-mi2s-master = <0>, <1>, <1>, <1>, <1>;
 	qcom,ext-disp-audio-rx = <1>;
 	qcom,audio-routing =
 		"AMIC2", "MIC BIAS2",
 		"MIC BIAS2", "Analog Mic2",
-		"TX DMIC0", "MIC BIAS1",
+	/*	"TX DMIC0", "MIC BIAS1",
 		"MIC BIAS1", "Digital Mic0",
 		"TX DMIC1", "MIC BIAS1",
 		"MIC BIAS1", "Digital Mic1",
 		"TX DMIC2", "MIC BIAS3",
 		"MIC BIAS3", "Digital Mic2",
 		"TX DMIC3", "MIC BIAS3",
-		"MIC BIAS3", "Digital Mic3",
+		"MIC BIAS3", "Digital Mic3",*/
+		"TX DMIC0", "Digital Mic0",
+		"TX DMIC1", "Digital Mic1",
+		"TX DMIC2", "Digital Mic2",
+		"TX DMIC3", "Digital Mic3",
 		"TX_AIF1 CAP", "VA_MCLK",
 		"TX_AIF2 CAP", "VA_MCLK",
 		"RX AIF1 PB", "VA_MCLK",
@@ -240,22 +195,24 @@
 	qcom,msm-mbhc-gnd-swh = <1>;
 	qcom,cdc-dmic01-gpios = <&cdc_dmic01_gpios>;
 	qcom,cdc-dmic23-gpios = <&cdc_dmic23_gpios>;
-	asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>;
+	asoc-codec  = <&stub_codec>, <&bolero>,<&cs35l41_1>,<&cs35l41_2>,<&cs35l41_3>,<&cs35l41_4>, <&ext_disp_audio_codec>;
 	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
-			   "msm-ext-disp-audio-codec-rx";
-	qcom,wsa-max-devs = <2>;
-	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
-			<&wsa881x_0213>, <&wsa881x_0214>;
+			  "cs35l41_1","cs35l41_2","cs35l41_3","cs35l41_4","msm-ext-disp-audio-codec-rx";
+	qcom,wsa-max-devs = <0>;
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
 				  "SpkrLeft", "SpkrRight";
-	qcom,codec-max-aux-devs = <1>;
-	qcom,codec-aux-devs = <&wcd937x_codec>;
+	cirrus,prince-max-devs=<4>;
+	cirrus,prince-devs=<&cs35l41_1>,<&cs35l41_2>,<&cs35l41_3>,<&cs35l41_4>;
+	cirrus,prince-dev-prefix="SPK1","SPK2","SPK3","SPK4";
+	qcom,codec-max-aux-devs = <0>;
+/*	qcom,codec-aux-devs = <&wcd937x_codec>; */
 	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>,
 				<&lpi_tlmm>, <&bolero>;
 };
 
 &soc {
 	cdc_dmic01_gpios: cdc_dmic01_pinctrl {
+		status = "okay";
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&cdc_dmic01_clk_active &cdc_dmic01_data_active>;
@@ -264,18 +221,12 @@
 	};
 
 	cdc_dmic23_gpios: cdc_dmic23_pinctrl {
+		status = "okay";
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&cdc_dmic23_clk_active &cdc_dmic23_data_active>;
 		pinctrl-1 = <&cdc_dmic23_clk_sleep &cdc_dmic23_data_sleep>;
 		qcom,lpi-gpios;
-	};
-
-	wsa_swr_gpios: wsa_swr_clk_data_pinctrl {
-		compatible = "qcom,msm-cdc-pinctrl";
-		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&wsa_swr_clk_active &wsa_swr_data_active>;
-		pinctrl-1 = <&wsa_swr_clk_sleep &wsa_swr_data_sleep>;
 	};
 
 	rx_swr_gpios: rx_swr_clk_data_pinctrl {
@@ -296,19 +247,6 @@
 		qcom,lpi-gpios;
 	};
 
-	wsa_spkr_en1: wsa_spkr_en1_pinctrl {
-		compatible = "qcom,msm-cdc-pinctrl";
-		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&spkr_1_sd_n_active>;
-		pinctrl-1 = <&spkr_1_sd_n_sleep>;
-	};
-
-	wsa_spkr_en2: wsa_spkr_en2_pinctrl {
-		compatible = "qcom,msm-cdc-pinctrl";
-		pinctrl-names = "aud_active", "aud_sleep";
-		pinctrl-0 = <&spkr_2_sd_n_active>;
-		pinctrl-1 = <&spkr_2_sd_n_sleep>;
-	};
 
 	wcd9xxx_intc: wcd9xxx-irq {
 		status = "disabled";
@@ -417,9 +355,6 @@
 		status = "disabled";
 		qcom,codec-ext-clk-src = <0>;
 		compatible = "qcom,audio-ref-clk";
-		pinctrl-names = "active", "sleep";
-		pinctrl-0 = <&wcd934x_mclk_default>;
-		pinctrl-1 = <&wcd934x_mclk_default>;
 		qcom,use-pinctrl = <1>;
 		qcom,audio-ref-clk-gpio = <&pm6150_gpios 8 0>;
 		clock-names = "osr_clk";
@@ -506,4 +441,253 @@
 			qcom,mem-base-addr = <0x100000>;
 		};
 	};
+};
+&tlmm{
+        /* PA_INT1 - I2C ADDR: 01 - 0x41 */
+        cs35l41_2_irq_default:cs35l41_2_irq_default{
+                config{
+                        pins="gpio68";
+                        drive-strength=<2>;
+                        bias-no-pull;
+                        };
+        };
+
+        /* PA_INT2 - I2C ADDR: 11 - 0x43 */
+        cs35l41_4_irq_default:cs35l41_4_irq_default{
+                config{
+                        pins="gpio30";
+                        drive-strength=<2>;
+                        bias-no-pull;
+                        };
+        };
+
+        /* PA_INT3 - I2C ADDR: 00 - 0x40 */
+        cs35l41_1_irq_default:cs35l41_1_irq_default{
+                config{
+                        pins="gpio26";
+                        drive-strength=<2>;
+                        bias-no-pull;
+                        };
+        };
+
+        /* PA_INT4 - I2C ADDR: 10 - 0x42 */
+        cs35l41_3_irq_default:cs35l41_3_irq_default{
+                config{
+                        pins="gpio24";
+                        drive-strength=<2>;
+                        bias-no-pull;
+                        };
+        };
+
+        cs35l41_reset_default:cs35l41_reset_default{
+                config{
+                        pins="gpio37";
+                        drive-strength=<2>;
+                        bias-pull-up;
+                        };
+        };
+
+};
+
+&qupv3_se1_i2c{
+	status="okay";
+
+	/* Speaker 1st Amp */
+	cs35l41_1: cs35l41@40 {
+		compatible = "cirrus,cs35l41";
+		reg = <0x40>;
+
+		reset-gpios = <&tlmm 37 0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <26 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupt-names = "cs35l41_1_irq";
+		VA-supply = <&pm6150_l10>;	
+		pinctrl-names="default";
+		pinctrl-0=<&cs35l41_1_irq_default>, <&cs35l41_reset_default>;
+		cirrus,boost-peak-milliamp = <3000>;
+		cirrus,boost-ind-nanohenry = <1000>;
+		cirrus,boost-cap-microfarad = <15>;
+		cirrus,asp-sdout-hiz = <0x3>;
+		cirrus,right-channel-amp;
+		cirrus,runtime-channel-switch;
+		cirrus,fast-switch = "spk1_fast_switch1.txt", "spk1_fast_switch2.txt", "spk1_fast_switch3.txt", "spk1_fast_switch4.txt";
+		cirrus,gpio-config2 {
+			cirrus,gpio-type = <1>; /* 0 indicate gpio, 1 indicate interrupt */
+			cirrus,gpio-src-select = <0x4>;
+			cirrus,gpio-output-enable;
+		};
+		adsps {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			adsp@2b80000 {
+				reg = <0x2b80000>;
+				firmware {
+					protection {
+						cirrus,full-name;
+						cirrus,wmfw-file = "cs35l41-dsp1-spk-prot.wmfw";
+						cirrus,bin-file = "cs35l41-dsp1-spk-prot1.bin";
+					};
+					calibration {
+						cirrus,full-name;
+						cirrus,wmfw-file = "cs35l41-dsp1-spk-cali.wmfw";
+						cirrus,bin-file = "cs35l41-dsp1-spk-cali.bin";
+					};
+				};
+			};
+		};
+	};
+
+	/* Speaker 2nd Amp */
+	cs35l41_2: cs35l41@41 {
+		compatible = "cirrus,cs35l41";
+		reg = <0x41>;
+
+		reset-gpios = <&tlmm 37 0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <68 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupt-names = "cs35l41_2_irq";
+		VA-supply = <&pm6150_l10>;
+		pinctrl-names="default";
+		pinctrl-0=<&cs35l41_2_irq_default>, <&cs35l41_reset_default>;
+		cirrus,boost-peak-milliamp = <3000>;
+		cirrus,boost-ind-nanohenry = <1000>;
+		cirrus,boost-cap-microfarad = <15>;
+		cirrus,asp-sdout-hiz = <0x3>;
+		cirrus,runtime-channel-switch;
+		cirrus,fast-switch = "spk2_fast_switch1.txt", "spk2_fast_switch2.txt", "spk2_fast_switch3.txt", "spk2_fast_switch4.txt";
+	
+		cirrus,gpio-config2 {
+			cirrus,gpio-type = <1>; /* 0 indicate gpio, 1 indicate interrupt */
+			cirrus,gpio-src-select = <0x4>;
+			cirrus,gpio-output-enable;
+		};
+		adsps {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			adsp@2b80000 {
+				reg = <0x2b80000>;
+				firmware {
+					protection {
+						cirrus,full-name;
+						cirrus,wmfw-file = "cs35l41-dsp1-spk-prot.wmfw";
+						cirrus,bin-file = "cs35l41-dsp1-spk-prot2.bin";
+					};
+					calibration {
+						cirrus,full-name;
+						cirrus,wmfw-file = "cs35l41-dsp1-spk-cali.wmfw";
+						cirrus,bin-file = "cs35l41-dsp1-spk-cali.bin";
+					};
+				};
+			};
+		}; 
+	};
+
+	/* Speaker 3rd Amp */
+	cs35l41_3: cs35l41@42 {
+		compatible = "cirrus,cs35l41";
+		reg = <0x42>;
+
+		reset-gpios = <&tlmm 37 0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <24 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupt-names = "cs35l41_3_irq";
+		VA-supply = <&pm6150_l10>;
+		pinctrl-names="default";
+		pinctrl-0=<&cs35l41_3_irq_default>, <&cs35l41_reset_default>;
+		cirrus,boost-peak-milliamp = <3000>;
+		cirrus,boost-ind-nanohenry = <1000>;
+		cirrus,boost-cap-microfarad = <15>;
+		cirrus,asp-sdout-hiz = <0x3>;
+		cirrus,right-channel-amp;
+		cirrus,runtime-channel-switch;
+		cirrus,fast-switch = "spk3_fast_switch1.txt", "spk3_fast_switch2.txt", "spk3_fast_switch3.txt", "spk3_fast_switch4.txt";
+
+		cirrus,gpio-config2 {
+			cirrus,gpio-type = <1>; /* 0 indicate gpio, 1 indicate interrupt */
+			cirrus,gpio-src-select = <0x4>;
+			cirrus,gpio-output-enable;
+		};
+		adsps {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			adsp@2b80000 {
+				reg = <0x2b80000>;
+				firmware {
+					protection {
+						cirrus,full-name;
+						cirrus,wmfw-file = "cs35l41-dsp1-spk-prot.wmfw";
+						cirrus,bin-file = "cs35l41-dsp1-spk-prot3.bin";
+					};
+					calibration {
+						cirrus,full-name;
+						cirrus,wmfw-file = "cs35l41-dsp1-spk-cali.wmfw";
+						cirrus,bin-file = "cs35l41-dsp1-spk-cali.bin";
+					};
+				};
+			};
+		};
+	};
+
+	/* Speaker 4th Amp */
+	cs35l41_4: cs35l41@43 {
+		compatible = "cirrus,cs35l41";
+		reg = <0x43>;
+
+		reset-gpios = <&tlmm 37 0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <30 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupt-names = "cs35l41_4_irq";
+		VA-supply = <&pm6150_l10>;
+		pinctrl-names="default";
+		pinctrl-0=<&cs35l41_4_irq_default>, <&cs35l41_reset_default>;
+		cirrus,boost-peak-milliamp = <3000>;
+		cirrus,boost-ind-nanohenry = <1000>;
+		cirrus,boost-cap-microfarad = <15>;
+		cirrus,asp-sdout-hiz = <0x3>;
+		cirrus,runtime-channel-switch;
+		cirrus,fast-switch = "spk4_fast_switch1.txt", "spk4_fast_switch2.txt", "spk4_fast_switch3.txt", "spk4_fast_switch4.txt";
+
+		cirrus,gpio-config2 {
+			cirrus,gpio-type = <1>; /* 0 indicate gpio, 1 indicate interrupt */
+			cirrus,gpio-src-select = <0x4>;
+			cirrus,gpio-output-enable;
+		};
+		adsps {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			adsp@2b80000 {
+				reg = <0x2b80000>;
+				firmware {
+					protection {
+						cirrus,full-name;
+						cirrus,wmfw-file = "cs35l41-dsp1-spk-prot.wmfw";
+						cirrus,bin-file = "cs35l41-dsp1-spk-prot4.bin";
+					};
+					calibration {
+						cirrus,full-name;
+						cirrus,wmfw-file = "cs35l41-dsp1-spk-cali.wmfw";
+						cirrus,bin-file = "cs35l41-dsp1-spk-cali.bin";
+					};
+				};
+			};
+		};
+	};
+
+        //AC108 
+        
+       ac108@35{
+            compatible = "MicArray_0";
+	    reg = <0x35>;
+            ac108_dvcc_1v8-supply = <&pm6150_l10>;
+	    ac108_avcc_vccio_3v3-supply = <&pm6150l_l7>;
+	    status = "okay";
+       };
 };

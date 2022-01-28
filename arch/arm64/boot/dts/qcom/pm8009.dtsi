@@ -29,12 +29,12 @@
 			reg = <0xc000 0x400>;
 			interrupts = <0x0 0xc0 0 IRQ_TYPE_NONE>,
 				     <0x0 0xc1 0 IRQ_TYPE_NONE>,
+				     <0x0 0xc2 0 IRQ_TYPE_NONE>,
 				     <0x0 0xc3 0 IRQ_TYPE_NONE>;
-			interrupt-names = "pm8009_gpio1",  "pm8009_gpio2",
-					  "pm8009_gpio4";
+			interrupt-names = "pm8009_gpio1",  "pm8009_gpio2", "pm8009_gpio3",  "pm8009_gpio4";
 			gpio-controller;
 			#gpio-cells = <2>;
-			qcom,gpios-disallowed = <3>;
+			/*qcom,gpios-disallowed = <4>;*/
 		};
 	};
 
