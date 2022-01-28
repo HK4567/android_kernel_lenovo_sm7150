@@ -24,6 +24,10 @@
 #include "dsi_ctrl_hw.h"
 #include "dsi_parser.h"
 
+#ifdef CONFIG_FAN49103
+extern int fan49103_init_regs(void);
+#endif
+
 /**
  * topology is currently defined by a set of following 3 values:
  * 1. num of layer mixers
@@ -451,7 +455,13 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 		goto error_disable_gpio;
 	}
 
-	goto exit;
+#ifdef CONFIG_FAN49103
+	rc = fan49103_init_regs();
+	if(rc) {
+		pr_err("[%s] failed to init fan49103 regs, rc=%d\n", panel->name, rc);
+	}
+#endif
+	return 0;
 
 error_disable_gpio:
 	if (gpio_is_valid(panel->reset_config.disp_en_gpio))
@@ -476,6 +486,7 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 	if (gpio_is_valid(panel->reset_config.disp_en_gpio))
 		gpio_set_value(panel->reset_config.disp_en_gpio, 0);
 
+	msleep(1);
 	if (gpio_is_valid(panel->reset_config.reset_gpio))
 		gpio_set_value(panel->reset_config.reset_gpio, 0);
 

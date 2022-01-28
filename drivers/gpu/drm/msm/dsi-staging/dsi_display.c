@@ -32,6 +32,8 @@
 #include "sde_dbg.h"
 #include "dsi_parser.h"
 
+extern int register_hardware_info(const char *name, const char *model);
+
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 #define INT_BASE_10 10
 #define NO_OVERRIDE -1
@@ -5236,6 +5238,10 @@ static int dsi_display_bind(struct device *dev,
 
 	pr_info("Successfully bind display panel '%s'\n", display->name);
 	display->drm_dev = drm;
+
+	if(register_hardware_info("OLED", "EDO, Raydium-RM69380")) {
+		pr_err("failed to register hardware info\n");
+	}
 
 	display_for_each_ctrl(i, display) {
 		display_ctrl = &display->ctrl[i];

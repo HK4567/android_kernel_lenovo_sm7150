@@ -14,7 +14,7 @@
 
 #define pr_fmt(fmt)	"[drm-dp] %s: " fmt, __func__
 
-#include <linux/soc/qcom/fsa4480-i2c.h>
+#include <linux/usb/ssusb_redriver.h>
 #include <linux/usb/usbpd.h>
 #include <linux/delay.h>
 
@@ -817,7 +817,7 @@ static int dp_aux_configure_aux_switch(struct dp_aux *dp_aux,
 {
 	struct dp_aux_private *aux;
 	int rc = 0;
-	enum fsa_function event = FSA_USBC_DISPLAYPORT_DISCONNECTED;
+	enum ssusb_redriver_function event = USBC_DISPLAYPORT_DISCONNECTED;
 
 	if (!dp_aux) {
 		pr_err("invalid input\n");
@@ -836,10 +836,10 @@ static int dp_aux_configure_aux_switch(struct dp_aux *dp_aux,
 	if (enable) {
 		switch (orientation) {
 		case ORIENTATION_CC1:
-			event = FSA_USBC_ORIENTATION_CC1;
+			event = USBC_ORIENTATION_CC1;
 			break;
 		case ORIENTATION_CC2:
-			event = FSA_USBC_ORIENTATION_CC2;
+			event = USBC_ORIENTATION_CC2;
 			break;
 		default:
 			pr_err("invalid orientation\n");
@@ -848,10 +848,10 @@ static int dp_aux_configure_aux_switch(struct dp_aux *dp_aux,
 		}
 	}
 
-	pr_debug("enable=%d, orientation=%d, event=%d\n",
+	pr_err("enable=%d, orientation=%d, event=%d\n",
 			enable, orientation, event);
 
-	rc = fsa4480_switch_event(aux->aux_switch_node, event);
+	rc = ssusb_redriver_event(aux->aux_switch_node, event);
 	if (rc)
 		pr_err("failed to configure fsa4480 i2c device (%d)\n", rc);
 end:
