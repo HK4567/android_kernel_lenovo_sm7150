@@ -1919,6 +1919,17 @@ int cam_sensor_util_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 	struct cam_sensor_power_setting *pd = NULL;
 	struct cam_sensor_power_setting *ps = NULL;
 	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
+        struct led_trigger *p_trig;
+        p_trig=get_trig();
+        if (p_trig!=NULL){
+            cam_res_mgr_led_trigger_event(p_trig,0);
+            p_trig=NULL;
+            kfree(p_trig);
+        }
+        else {
+            kfree(p_trig);
+            CAM_ERR(CAM_SENSOR, "no_flash_device_p_trig= %pK",  p_trig);
+        }
 
 	CAM_DBG(CAM_SENSOR, "Enter");
 	if (!ctrl || !soc_info) {
