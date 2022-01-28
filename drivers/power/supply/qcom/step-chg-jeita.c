@@ -23,6 +23,9 @@
 #define STEP_CHG_VOTER		"STEP_CHG_VOTER"
 #define JEITA_VOTER		"JEITA_VOTER"
 
+#define COLD_TEMP               0
+#define HOT_TEMP                500
+
 #define is_between(left, right, value) \
 		(((left) >= (right) && (left) >= (value) \
 			&& (value) >= (right)) \
@@ -71,6 +74,7 @@ struct step_chg_info {
 	struct votable		*fcc_votable;
 	struct votable		*fv_votable;
 	struct votable		*usb_icl_votable;
+	struct votable		*jetia_chg_disable_votable;
 	struct wakeup_source	*step_chg_ws;
 	struct power_supply	*batt_psy;
 	struct power_supply	*bms_psy;
@@ -643,7 +647,9 @@ static int handle_jeita(struct step_chg_info *chip)
 	if (elapsed_us < STEP_CHG_HYSTERISIS_DELAY_US)
 		return 0;
 
-	if (chip->jeita_fcc_config->param.use_bms)
+	power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_HAVE_EXFG, &pval);
+	if (chip->jeita_fcc_config->param.use_bms && pval.intval == 0)
 		rc = power_supply_get_property(chip->bms_psy,
 				chip->jeita_fcc_config->param.psy_prop, &pval);
 	else
@@ -654,6 +660,17 @@ static int handle_jeita(struct step_chg_info *chip)
 		pr_err("Couldn't read %s property rc=%d\n",
 				chip->jeita_fcc_config->param.prop_name, rc);
 		return rc;
+	}
+
+	if (!chip->jetia_chg_disable_votable)
+		chip->jetia_chg_disable_votable = find_votable("CHG_DISABLE");
+	if (chip->jetia_chg_disable_votable) {
+		bool chg_disable = false;
+		chg_disable = ((pval.intval <= COLD_TEMP) ||
+				(pval.intval >= HOT_TEMP));
+		vote(chip->jetia_chg_disable_votable, JEITA_VOTER, chg_disable, 0);
+	} else {
+		pr_err("Couldn't found chg_disable_votable\n");
 	}
 
 	rc = get_val(chip->jeita_fcc_config->fcc_cfg,
@@ -805,6 +822,7 @@ static int step_chg_notifier_call(struct notifier_block *nb,
 		return NOTIFY_OK;
 
 	if ((strcmp(psy->desc->name, "battery") == 0)
+			|| (strcmp(psy->desc->name, "bq27541-0") == 0)
 			|| (strcmp(psy->desc->name, "usb") == 0)) {
 		__pm_stay_awake(chip->step_chg_ws);
 		schedule_delayed_work(&chip->status_change_work, 0);
