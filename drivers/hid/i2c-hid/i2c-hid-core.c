@@ -44,7 +44,17 @@
 
 #include "../hid-ids.h"
 #include "i2c-hid.h"
-
+#ifdef CONFIG_FB
+//#include <linux/notifier.h>
+#include <linux/fb.h>
+#endif
+#ifdef CONFIG_DRM
+#include <linux/msm_drm_notify.h>
+#endif
+extern int register_hardware_info(const char *name, const char *model);
+extern  int unregister_hardware_info(const char *name);
+extern void report_powerkey(void);
+//extern void report_mousekey(char lr );
 /* quirks to control the device */
 #define I2C_HID_QUIRK_SET_PWR_WAKEUP_DEV	BIT(0)
 
@@ -57,7 +67,22 @@
 #define I2C_HID_PWR_SLEEP	0x01
 
 /* debug option */
-static bool debug;
+static bool debug=1;
+//extern bool hidinputreg;
+int tpd_ver =0;
+int kb_ver =0;
+int kb_connect=0;
+int host_mcuver=0;
+int adc_value=0;
+int tpd_status =0;
+int kb_status =0;
+char hall_status= 0;
+char KBhwinfo[64];
+char tpdhwinfo[64];
+char cradleconnect;
+static struct wakeup_source kbwakesource;
+struct delayed_work connectwake_work;
+
 module_param(debug, bool, 0444);
 MODULE_PARM_DESC(debug, "print a lot of debug information");
 
@@ -115,6 +140,7 @@ static const struct i2c_hid_cmd hid_report_descr_cmd = {
 /* commands */
 static const struct i2c_hid_cmd hid_reset_cmd =		{ I2C_HID_CMD(0x01),
 							  .wait = true };
+static const struct i2c_hid_cmd hid_reset_nowait_cmd =		{ I2C_HID_CMD(0x01) };
 static const struct i2c_hid_cmd hid_get_report_cmd =	{ I2C_HID_CMD(0x02) };
 static const struct i2c_hid_cmd hid_set_report_cmd =	{ I2C_HID_CMD(0x03) };
 static const struct i2c_hid_cmd hid_set_power_cmd =	{ I2C_HID_CMD(0x08) };
@@ -158,6 +184,9 @@ struct i2c_hid {
 
 	bool			irq_wake_enabled;
 	struct mutex		reset_lock;
+    #ifdef CONFIG_FB
+    struct notifier_block fb_notifier;
+    #endif
 };
 
 static const struct i2c_hid_quirks {
@@ -171,7 +200,7 @@ static const struct i2c_hid_quirks {
 		I2C_HID_QUIRK_SET_PWR_WAKEUP_DEV },
 	{ 0, 0 }
 };
-
+extern bool irq_wake_enabled;
 /*
  * i2c_hid_lookup_quirk: return any quirks associated with a I2C HID device
  * @idVendor: the 16-bit vendor ID
@@ -326,8 +355,7 @@ static int i2c_hid_set_or_send_report(struct i2c_client *client, u8 reportType,
 	int args_len;
 	int index = 0;
 
-	i2c_hid_dbg(ihid, "%s\n", __func__);
-
+//	i2c_hid_dbg(ihid, "%s\n", __func__);
 	if (data_len > ihid->bufsize)
 		return -EINVAL;
 
@@ -454,7 +482,8 @@ static void i2c_hid_get_input(struct i2c_hid *ihid)
 	int ret;
 	u32 ret_size;
 	int size = le16_to_cpu(ihid->hdesc.wMaxInputLength);
-
+//	u8 lr;
+ // i2c_hid_dbg(ihid,"hid i2c_hid_get_input \n");
 	if (size > ihid->bufsize)
 		size = ihid->bufsize;
 
@@ -482,8 +511,100 @@ static void i2c_hid_get_input(struct i2c_hid *ihid)
 			__func__, size, ret_size);
 		return;
 	}
+	//add for keyboard &tpd version &adc value
+	if(ihid->inbuf[2]==0x06)
+		{
+	kb_connect=ihid->inbuf[3]&0x01;
+	tpd_status =( ihid->inbuf[3]>>6) &0x01;
+	kb_status= (ihid->inbuf[3] >>4)&0x03;
+	hall_status = (ihid->inbuf[3] >>7)&0x01;
+	cradleconnect =(ihid->inbuf[3] >>3)&0x01;
+	host_mcuver=ihid->inbuf[4];
+	kb_ver =ihid->inbuf[5];
+	tpd_ver =ihid->inbuf[6];
+		
+	adc_value=(ihid->inbuf[8]<<8)+ihid->inbuf[7];
+	printk("i2c_hid_getinput kb_connect 0x%x,otherconnect 0x%x,hostmcuver 0x%x,kbver 0x%x,tpdver0x%x,adc 0x%x,tpd_status 0x%x,kb_status 0x%x, hall_status 0x%x,buf3 0x%x, inputreg %d.\n",kb_connect,cradleconnect,host_mcuver,kb_ver,tpd_ver,adc_value,tpd_status,kb_status,hall_status,ihid->inbuf[3],ihid->hid->inputregister);
+if(ihid->hid->kbhwinforeg==0)
+{
+	sprintf(KBhwinfo,"mcu:%d",host_mcuver);
+	register_hardware_info("padmcu", KBhwinfo);
+	ihid->hid->kbhwinforeg=1;
+}
 
-	i2c_hid_dbg(ihid, "input: %*ph\n", ret_size, ihid->inbuf);
+	if(kb_connect ==0)
+		{
+		if(ihid->hid->inputregister==true)
+			{
+		printk("hid kbconnect disconnect .\n");
+		hidinput_disconnect(ihid->hid);
+		if(ihid->hid->tpdhwinforeg==1)
+			{
+		unregister_hardware_info("keyboardmcu");
+		ihid->hid->tpdhwinforeg=0;
+			}
+			}
+		}
+	else
+		{
+		if(ihid->hid->inputregister==false)
+			{
+		printk("hid kbconnect connect .\n");	
+		hidinput_connect(ihid->hid,0);
+
+			if(strcmp(ihid->hid->name,"hid-over-i2c 17EF:610B") == 0)
+			{
+		schedule_delayed_work(&connectwake_work, 100);//100->80
+		printk("hid wake up-----200. \n");
+		__pm_wakeup_event(&kbwakesource, 200);//200->150
+			}
+
+			}
+		if(tpd_status==1)
+			{
+		kobject_uevent(&ihid->hid->dev.kobj,KOBJ_ADD);
+			printk("touchpad disabe shortcutkey .\n");	
+	
+			}
+		else
+			{
+		kobject_uevent(&ihid->hid->dev.kobj,KOBJ_REMOVE);
+		printk("touchpad enable shortcutkey .\n");	
+
+			}
+		if(hall_status==1)
+			{
+		kobject_uevent(&ihid->hid->dev.kobj,KOBJ_ONLINE);
+			printk("touchpad hall enable .\n");	
+	
+			}
+		else
+			{
+		kobject_uevent(&ihid->hid->dev.kobj,KOBJ_OFFLINE);
+		printk("touchpad hall disable .\n");	
+
+			}
+		if(ihid->hid->tpdhwinforeg==0)
+			{
+	sprintf(tpdhwinfo,"mcu:%d,tp:%d,kb:%d,online:%d",host_mcuver,tpd_ver,kb_ver,kb_connect);
+	register_hardware_info("keyboardmcu", tpdhwinfo);
+	ihid->hid->tpdhwinforeg=1;
+			}
+	}
+	return;
+	}
+/*	if(ihid->inbuf[2]==0x09)
+	{
+	lr=ihid->inbuf[3]&0x3;
+	if(lr)
+		report_mousekey(lr);
+	else 
+		printk("hid lr no .\n");
+	return;
+	}*/
+
+	//add for keyboard &tpd version &adc value
+//	i2c_hid_dbg(ihid, "input: %*ph ,id  0x%x\n", ret_size, ihid->inbuf,ihid->inbuf[2]);
 
 	if (test_bit(I2C_HID_STARTED, &ihid->flags))
 		hid_input_report(ihid->hid, HID_INPUT_REPORT, ihid->inbuf + 2,
@@ -598,7 +719,7 @@ static int i2c_hid_get_raw_report(struct hid_device *hid,
 	/* The query buffer contains the size, dropping it in the reply */
 	count = min(count, ret_count - 2);
 	memcpy(buf, ihid->rawbuf + 2, count);
-
+i2c_hid_dbg(ihid, "------hid get raw request: %*ph\n", ret_count,ihid->rawbuf);
 	return count;
 }
 
@@ -623,7 +744,7 @@ static int i2c_hid_output_raw_report(struct hid_device *hid, __u8 *buf,
 	ret = i2c_hid_set_or_send_report(client,
 				report_type == HID_FEATURE_REPORT ? 0x03 : 0x02,
 				report_id, buf, count, use_data);
-
+//i2c_hid_dbg(ihid, "------hid output raw report: %*ph\n", count,buf);
 	if (report_id && ret >= 0)
 		ret++; /* add report_id to the number of transfered bytes */
 
@@ -673,6 +794,7 @@ static int i2c_hid_parse(struct hid_device *hid)
 		dbg_hid("weird size of report descriptor (%u)\n", rsize);
 		return -EINVAL;
 	}
+  //   i2c_hid_dbg(ihid, "entering %s,rsize 0x%x \n", __func__,rsize);
 
 	do {
 		ret = i2c_hid_hwreset(client);
@@ -697,7 +819,7 @@ static int i2c_hid_parse(struct hid_device *hid)
 			return -ENOMEM;
 		}
 
-		i2c_hid_dbg(ihid, "asking HID report descriptor\n");
+	//	i2c_hid_dbg(ihid, "asking HID report descriptor rsize 0x%x\n",rsize);
 
 		ret = i2c_hid_command(client, &hid_report_descr_cmd,
 				      rdesc, rsize);
@@ -829,6 +951,13 @@ static int i2c_hid_init_irq(struct i2c_client *client)
 		return ret;
 	}
 
+	i2c_hid_dbg(ihid,"hid dev init wakeup .\n");
+	ret=device_init_wakeup(&client->dev,true);
+	if(ret!=0)                                     
+	{
+		i2c_hid_dbg(ihid,"hid device_init_wakeup failed: %d\n", client->irq);    
+	}
+
 	return 0;
 }
 
@@ -929,6 +1058,30 @@ static inline int i2c_hid_acpi_pdata(struct i2c_client *client,
 
 static inline void i2c_hid_acpi_fix_up_power(struct device *dev) {}
 #endif
+#if defined (CONFIG_DRM)
+int hid_drm_notifier_callback(struct notifier_block *self,unsigned long event, void *data)
+{
+	 struct i2c_hid *core_data =container_of(self, struct i2c_hid, fb_notifier);
+     struct fb_event *fb_event = data;
+	 printk("hid_drm_notifier_callback. \n");
+     if (fb_event && fb_event->data && core_data) {
+	 	int *blank = fb_event->data;
+	 	if (event == MSM_DRM_EARLY_EVENT_BLANK) {
+			if (*blank == MSM_DRM_BLANK_POWERDOWN){
+				irq_wake_enabled = true;
+			printk("hid-drm notifier callback suspend irq wake.\n");
+			/* before fb blank */
+				 }} else if (event == MSM_DRM_EVENT_BLANK) {
+				 if (*blank == MSM_DRM_BLANK_UNBLANK)
+				 {
+					 irq_wake_enabled = false;
+					printk("hid-drm notifier callback resume.\n");
+				 }
+				 }
+			 }
+		       return 0;
+}
+#endif
 
 #ifdef CONFIG_OF
 static int i2c_hid_of_probe(struct i2c_client *client,
@@ -970,6 +1123,21 @@ static inline int i2c_hid_of_probe(struct i2c_client *client,
 	return -ENODEV;
 }
 #endif
+static ssize_t hid_show_version(struct device *dev,
+				struct device_attribute
+				*attr, char *buf)
+{
+
+	return snprintf(buf, PAGE_SIZE, "%d:%d:%d:%d:%d \n", 	host_mcuver,tpd_ver,kb_ver,kb_connect,tpd_status);
+}
+
+
+static DEVICE_ATTR(version, 0444,
+		hid_show_version, NULL);
+static void hid_connectwake_work(struct work_struct *work)
+{
+	report_powerkey();
+}
 
 static int i2c_hid_probe(struct i2c_client *client,
 			 const struct i2c_device_id *dev_id)
@@ -1093,14 +1261,29 @@ static int i2c_hid_probe(struct i2c_client *client,
 	strlcpy(hid->phys, dev_name(&client->dev), sizeof(hid->phys));
 
 	ihid->quirks = i2c_hid_lookup_quirk(hid->vendor, hid->product);
-
+	if(strcmp(hid->name,"hid-over-i2c 17EF:610B") == 0)
+		{
+		INIT_DELAYED_WORK(&connectwake_work,hid_connectwake_work);
+		wakeup_source_init(&kbwakesource, "keyboardwake");
+		}
 	ret = hid_add_device(hid);
 	if (ret) {
 		if (ret != -ENODEV)
 			hid_err(client, "can't add hid device: %d\n", ret);
 		goto err_mem_free;
 	}
+	ret = device_create_file(&hid->dev, &dev_attr_version);
+		if (ret)
+			hid_err(hid,"can't create version attribute err: %d\n",ret);
+	
+#ifdef CONFIG_DRM
+	 ihid->fb_notifier.notifier_call = hid_drm_notifier_callback;
+		if(msm_drm_register_client(&ihid->fb_notifier))
+			hid_err(hid," Unable to register hid  msm_drm_fb_notifier.\n");
 
+#endif
+
+//printk("hid i2c-hid-probe %s.\n",hid->name);
 	pm_runtime_put(&client->dev);
 	return 0;
 
@@ -1127,11 +1310,14 @@ static int i2c_hid_remove(struct i2c_client *client)
 {
 	struct i2c_hid *ihid = i2c_get_clientdata(client);
 	struct hid_device *hid;
+		if(strcmp(hid->name,"hid-over-i2c 17EF:610B") == 0)
+			wakeup_source_trash(&kbwakesource);
 
 	pm_runtime_get_sync(&client->dev);
 	pm_runtime_disable(&client->dev);
 	pm_runtime_set_suspended(&client->dev);
 	pm_runtime_put_noidle(&client->dev);
+	device_remove_file(&hid->dev, &dev_attr_version);
 
 	hid = ihid->hid;
 	hid_destroy_device(hid);
@@ -1164,6 +1350,7 @@ static int i2c_hid_suspend(struct device *dev)
 	struct hid_device *hid = ihid->hid;
 	int ret;
 	int wake_status;
+	dbg_hid("i2c_hid_suspend .\n");
 
 	if (hid->driver && hid->driver->suspend) {
 		/*
@@ -1179,14 +1366,16 @@ static int i2c_hid_suspend(struct device *dev)
 			return ret;
 	}
 
-	if (!pm_runtime_suspended(dev)) {
+//	if (!pm_runtime_suspended(dev)) {
 		/* Save some power */
 		i2c_hid_set_power(client, I2C_HID_PWR_SLEEP);
-
+dbg_hid("i2c_hid disable irq .\n");
 		disable_irq(client->irq);
-	}
+//	}
 
 	if (device_may_wakeup(&client->dev)) {
+		dbg_hid("i2c_hid_suspend may wakeup. \n");
+
 		wake_status = enable_irq_wake(client->irq);
 		if (!wake_status)
 			ihid->irq_wake_enabled = true;
@@ -1209,6 +1398,7 @@ static int i2c_hid_resume(struct device *dev)
 	struct i2c_hid *ihid = i2c_get_clientdata(client);
 	struct hid_device *hid = ihid->hid;
 	int wake_status;
+dbg_hid("i2c_hid_resume .\n");
 
 	if (!device_may_wakeup(&client->dev)) {
 		ret = regulator_enable(ihid->pdata.supply);
@@ -1231,7 +1421,16 @@ static int i2c_hid_resume(struct device *dev)
 	pm_runtime_enable(dev);
 
 	enable_irq(client->irq);
-	ret = i2c_hid_hwreset(client);
+//	ret = i2c_hid_hwreset(client);
+	mdelay(4);
+	ret = i2c_hid_set_power(client, I2C_HID_PWR_ON);
+	ret = i2c_hid_command(client, &hid_reset_nowait_cmd, NULL, 0);
+	if (ret) {
+		dev_err(&client->dev, "failed to reset device.\n");
+	}
+
+	dbg_hid("i2c_hid_resume poweron,reset nowait .\n");
+
 	if (ret)
 		return ret;
 
@@ -1247,19 +1446,21 @@ static int i2c_hid_resume(struct device *dev)
 #ifdef CONFIG_PM
 static int i2c_hid_runtime_suspend(struct device *dev)
 {
-	struct i2c_client *client = to_i2c_client(dev);
+//	struct i2c_client *client = to_i2c_client(dev);
+	dbg_hid("i2c_hid_runtime_suspend");
 
-	i2c_hid_set_power(client, I2C_HID_PWR_SLEEP);
-	disable_irq(client->irq);
+//	i2c_hid_set_power(client, I2C_HID_PWR_SLEEP);
+//	disable_irq(client->irq);
 	return 0;
 }
 
 static int i2c_hid_runtime_resume(struct device *dev)
 {
-	struct i2c_client *client = to_i2c_client(dev);
+//	struct i2c_client *client = to_i2c_client(dev);
+	dbg_hid("i2c_hid_runtime_resume");
 
-	enable_irq(client->irq);
-	i2c_hid_set_power(client, I2C_HID_PWR_ON);
+//	enable_irq(client->irq);
+//	i2c_hid_set_power(client, I2C_HID_PWR_ON);
 	return 0;
 }
 #endif

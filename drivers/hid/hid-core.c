@@ -44,7 +44,7 @@
 
 #define DRIVER_DESC "HID core driver"
 
-int hid_debug = 0;
+int hid_debug = 1;
 module_param_named(debug, hid_debug, int, 0600);
 MODULE_PARM_DESC(debug, "toggle HID debugging messages");
 EXPORT_SYMBOL_GPL(hid_debug);
@@ -1577,7 +1577,7 @@ int hid_report_raw_event(struct hid_device *hid, int type, u8 *data, u32 size,
 				csize, rsize);
 		memset(cdata + csize, 0, rsize - csize);
 	}
-
+//printk("hid-report-raw-event %d ,maxfield %d.\n",hid->claimed,report->maxfield);
 	if ((hid->claimed & HID_CLAIMED_HIDDEV) && hid->hiddev_report_event)
 		hid->hiddev_report_event(hid, report);
 	if (hid->claimed & HID_CLAIMED_HIDRAW) {
@@ -1585,7 +1585,7 @@ int hid_report_raw_event(struct hid_device *hid, int type, u8 *data, u32 size,
 		if (ret)
 			goto out;
 	}
-
+//go here 0312
 	if (hid->claimed != HID_CLAIMED_HIDRAW && report->maxfield) {
 		for (a = 0; a < report->maxfield; a++)
 			hid_input_field(hid, report->field[a], cdata, interrupt);
