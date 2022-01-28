@@ -13,6 +13,7 @@
 #include <linux/uaccess.h>
 #include <linux/regmap.h>
 #include <linux/ctype.h>
+#include <linux/usb/ssusb_redriver.h>
 
 /* priority: INT_MAX >= x >= 0 */
 #define NOTIFIER_PRIORITY		1
@@ -297,6 +298,39 @@ err_exit:
 		"failure to (%s) the redriver chip, reg 0x00 = 0x%x\n",
 		on ? "ENABLE":"DISABLE", val);
 }
+
+int ssusb_redriver_event(struct device_node *node,
+                         enum ssusb_redriver_function event)
+{
+        struct i2c_client *client = of_find_i2c_device_by_node(node);
+        struct ssusb_redriver *redriver;
+
+        if (!client)
+                return -EINVAL;
+
+        redriver = (struct ssusb_redriver *)i2c_get_clientdata(client);
+        if (!redriver)
+                return -EINVAL;
+        if (!redriver->regmap)
+                return -EINVAL;
+
+        switch (event) {
+        case USBC_ORIENTATION_CC1:
+		redriver_i2c_reg_set(redriver,0x09,0x00);
+		break;
+        case USBC_ORIENTATION_CC2:
+		redriver_i2c_reg_set(redriver,0x09,0x01);
+		break;
+        case USBC_DISPLAYPORT_DISCONNECTED:
+		redriver_i2c_reg_set(redriver,0x09,0x03);
+		break;
+        default:
+                break;
+        }
+
+        return 0;
+}
+EXPORT_SYMBOL(ssusb_redriver_event);
 
 static void ssusb_redriver_config_work(struct work_struct *w)
 {
