@@ -124,6 +124,8 @@
 #define DWC3_GEVNTADRHI_EVNTADRHI_GSI_IDX(n)	(n << 16)
 #define DWC3_GEVENT_TYPE_GSI			0x3
 
+int otg_flag_gpio;
+
 enum usb_gsi_reg {
 	GENERAL_CFG_REG,
 	DBL_ADDR_L,
@@ -3970,7 +3972,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "setting lpm_to_suspend_delay to zero.\n");
 		mdwc->lpm_to_suspend_delay = 0;
 	}
-
+	otg_flag_gpio = of_get_named_gpio(node,"qcom,otg_flag_gpio", 0);
+	dev_err(&pdev->dev, "otg_flag_gpio :%d\n",otg_flag_gpio);
 	memcpy(mdwc->wakeup_irq, usb_irq_info, sizeof(usb_irq_info));
 	for (i = 0; i < USB_MAX_IRQ; i++) {
 		irq_type = IRQF_TRIGGER_RISING | IRQF_EARLY_RESUME |
@@ -4540,7 +4543,30 @@ static void msm_dwc3_perf_vote_work(struct work_struct *w)
 }
 
 #define VBUS_REG_CHECK_DELAY	(msecs_to_jiffies(1000))
-
+void flag_otg_enable(int enable){
+	int ret;
+	pr_err("dwc3 otg_flag enable:%d gpio:%d\n",enable,otg_flag_gpio);
+	
+	if (gpio_is_valid(otg_flag_gpio)) {
+		ret = gpio_request(otg_flag_gpio, "flag_otg");
+		if (ret) {
+			pr_err("%d unable to request gpio [%d] ret=%d\n",
+						__LINE__, otg_flag_gpio, ret);
+			goto out;
+		}
+		ret = gpio_direction_output(otg_flag_gpio,enable);
+		if (ret) {
+			pr_err("unable to set dir for gpio[%d]\n",
+				otg_flag_gpio);
+			goto out;
+		}
+		gpio_free(otg_flag_gpio);
+		} else {
+			pr_err("gpio %d not provided\n",otg_flag_gpio);
+	}
+out:
+	return;
+}
 /**
  * dwc3_otg_start_host -  helper function for starting/stoping the host
  * controller driver.
@@ -4591,6 +4617,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		usb_phy_notify_connect(mdwc->hs_phy1, USB_SPEED_HIGH);
 		if (!IS_ERR_OR_NULL(mdwc->vbus_reg))
 			ret = regulator_enable(mdwc->vbus_reg);
+//		flag_otg_enable(1);
 		if (ret) {
 			dev_err(mdwc->dev, "unable to enable vbus_reg\n");
 			dwc3_msm_clear_hsphy_flags(mdwc, PHY_HOST_MODE);
@@ -4681,7 +4708,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			dev_err(mdwc->dev, "unable to disable vbus_reg\n");
 			return ret;
 		}
-
+//		flag_otg_enable(0);
 		cancel_delayed_work_sync(&mdwc->perf_vote_work);
 		msm_dwc3_perf_vote_update(mdwc, false);
 		pm_qos_remove_request(&mdwc->pm_qos_req_dma);
