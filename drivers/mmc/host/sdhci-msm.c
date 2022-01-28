@@ -40,8 +40,12 @@
 #include <linux/msm-bus.h>
 #include <linux/pm_runtime.h>
 #include <trace/events/mmc.h>
+#include <linux/proc_fs.h>
 
 #include "sdhci-msm.h"
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+#include "sdhci-msm-bh201.h"
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
 #include "sdhci-msm-ice.h"
 #include "cmdq_hci.h"
 
@@ -165,14 +169,18 @@
 #define SDHCI_MSM_MAX_SEGMENTS  (1 << 9)
 #define SDHCI_MSM_MMC_CLK_GATE_DELAY	200 /* msecs */
 
-#define CORE_FREQ_100MHZ	(100 * 1000 * 1000)
+#ifndef CONFIG_MMC_SDHCI_MSM_BH201
+#define CORE_FREQ_100MHZ        (100 * 1000 * 1000)
+#endif
 #define TCXO_FREQ		19200000
 
 #define INVALID_TUNING_PHASE	-1
 #define sdhci_is_valid_gpio_wakeup_int(_h) ((_h)->pdata->sdiowakeup_irq >= 0)
 
-#define NUM_TUNING_PHASES		16
-#define MAX_DRV_TYPES_SUPPORTED_HS200	4
+#ifndef CONFIG_MMC_SDHCI_MSM_BH201
+#define NUM_TUNING_PHASES               16
+#define MAX_DRV_TYPES_SUPPORTED_HS200   4
+#endif
 #define MSM_AUTOSUSPEND_DELAY_MS 100
 
 #define RCLK_TOGGLE 0x2
@@ -327,14 +335,15 @@ void sdhci_msm_writel_relaxed(u32 val, struct sdhci_host *host, u32 offset)
 /* Timeout value to avoid infinite waiting for pwr_irq */
 #define MSM_PWR_IRQ_TIMEOUT_MS 5000
 
-static const u32 tuning_block_64[] = {
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+const u32 tuning_block_64[16] = {
 	0x00FF0FFF, 0xCCC3CCFF, 0xFFCC3CC3, 0xEFFEFFFE,
 	0xDDFFDFFF, 0xFBFFFBFF, 0xFF7FFFBF, 0xEFBDF777,
 	0xF0FFF0FF, 0x3CCCFC0F, 0xCFCC33CC, 0xEEFFEFFF,
 	0xFDFFFDFF, 0xFFBFFFDF, 0xFFF7FFBB, 0xDE7B7FF7
 };
 
-static const u32 tuning_block_128[] = {
+const u32 tuning_block_128[32] = {
 	0xFF00FFFF, 0x0000FFFF, 0xCCCCFFFF, 0xCCCC33CC,
 	0xCC3333CC, 0xFFFFCCCC, 0xFFFFEEFF, 0xFFEEEEFF,
 	0xFFDDFFFF, 0xDDDDFFFF, 0xBBFFFFFF, 0xBBFFFFFF,
@@ -344,6 +353,7 @@ static const u32 tuning_block_128[] = {
 	0xDDFFFFFF, 0xDDFFFFFF, 0xFFFFFFDD, 0xFFFFFFBB,
 	0xFFFFBBBB, 0xFFFF77FF, 0xFF7777FF, 0xEEDDBB77
 };
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
 
 /* global to hold each slot instance for debug */
 static struct sdhci_msm_host *sdhci_slot[2];
@@ -367,10 +377,13 @@ enum vdd_io_level {
 	VDD_IO_SET_LEVEL,
 };
 
+
+#if 0
 enum dll_init_context {
 	DLL_INIT_NORMAL = 0,
 	DLL_INIT_FROM_CX_COLLAPSE_EXIT,
 };
+#endif
 
 static unsigned int sdhci_msm_get_sup_clk_rate(struct sdhci_host *host,
 						u32 req_clk);
@@ -506,7 +519,7 @@ static int sdhci_msm_config_auto_tuning_cmd(struct sdhci_host *host,
 	return rc;
 }
 
-static int msm_config_cm_dll_phase(struct sdhci_host *host, u8 phase)
+int msm_config_cm_dll_phase(struct sdhci_host *host, u8 phase)
 {
 	int rc = 0;
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -582,7 +595,7 @@ out:
  * selected DLL clock output phase.
  */
 
-static int msm_find_most_appropriate_phase(struct sdhci_host *host,
+int msm_find_most_appropriate_phase(struct sdhci_host *host,
 				u8 *phase_table, u8 total_phases)
 {
 	int ret;
@@ -719,7 +732,7 @@ static inline void msm_cm_dll_set_freq(struct sdhci_host *host)
 }
 
 /* Initialize the DLL (Programmable Delay Line ) */
-static int msm_init_cm_dll(struct sdhci_host *host,
+int msm_init_cm_dll(struct sdhci_host *host,
 				enum dll_init_context init_context)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -1129,7 +1142,7 @@ out:
 	return ret;
 }
 
-static int sdhci_msm_hs400_dll_calibration(struct sdhci_host *host)
+int sdhci_msm_hs400_dll_calibration(struct sdhci_host *host)
 {
 	int ret = 0;
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -1170,7 +1183,7 @@ out:
 	return ret;
 }
 
-static void sdhci_msm_set_mmc_drv_type(struct sdhci_host *host, u32 opcode,
+void sdhci_msm_set_mmc_drv_type(struct sdhci_host *host, u32 opcode,
 		u8 drv_type)
 {
 	struct mmc_command cmd = {0};
@@ -1435,7 +1448,13 @@ out:
 	pr_debug("%s: Exit %s, err(%d)\n", mmc_hostname(mmc), __func__, rc);
 	return rc;
 }
-
+//Add by ZhaoZiqiang for timeout controller register setting debug begin
+void sdhci_bht_set_timeout(struct sdhci_host *host, struct mmc_command *cmd)
+{
+	sdhci_writeb(host, 0xE, SDHCI_TIMEOUT_CONTROL);
+	DbgInfo("BHT_MSG: set SDHCI_TIMEOUT_CONTROL to 0xE\n");
+}
+//Add by ZhaoZiqiang for timeout controller register setting debug end
 static int sdhci_msm_setup_gpio(struct sdhci_msm_pltfm_data *pdata, bool enable)
 {
 	struct sdhci_msm_gpio_data *curr;
@@ -2779,6 +2798,25 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 
 	/* Handle BUS ON/OFF*/
 	if (irq_status & CORE_PWRCTL_BUS_ON) {
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+#ifdef CONFIG_MMC_SDHCI_MSM_BH201
+		if (sdhci_bht_target_host(host)) {
+			int card_present_status = gpio_direction_input(GPIO_SD_CARD_PRESENT);
+			DbgInfo("%s: apply bht power on patch\n", mmc_hostname(host->mmc));
+			DbgInfo("%s: set CD# as input, ret = %d\n", mmc_hostname(host->mmc), card_present_status);
+			
+			card_present_status = gpio_get_value(GPIO_SD_CARD_PRESENT);
+			DbgInfo("%s: present status is %d\n", mmc_hostname(host->mmc), card_present_status);
+			
+			//_ggc_reset_tuning_result_for_dll(host);
+			ggc_dll_voltage_init(host);
+			ggc_chip_init(host);
+			gpio_direction_output(GPIO_SD_CARD_PWR, 1);	//set PWR GPIO on
+			DbgInfo("%s: pin %d status is %d\n", mmc_hostname(host->mmc), GPIO_SD_CARD_PWR,
+				gpio_get_value(GPIO_SD_CARD_PWR));	
+		}
+#endif
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
 		ret = sdhci_msm_setup_vreg(msm_host->pdata, true, false);
 		if (!ret) {
 			ret = sdhci_msm_setup_pins(msm_host->pdata, true);
@@ -2794,9 +2832,36 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 		io_level = REQ_IO_HIGH;
 	}
 	if (irq_status & CORE_PWRCTL_BUS_OFF) {
-		if (msm_host->pltfm_init_done)
+		if (msm_host->pltfm_init_done) {
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+#ifdef CONFIG_MMC_SDHCI_MSM_BH201
+			if (sdhci_bht_target_host(host)){
+				int card_present_status = gpio_direction_input(GPIO_SD_CARD_PRESENT);
+				DbgInfo("%s: apply bht power off patch\n", mmc_hostname(host->mmc));
+				DbgInfo("%s: set CD# as input, ret = %d\n", mmc_hostname(host->mmc), card_present_status);
+				
+				card_present_status = gpio_get_value(GPIO_SD_CARD_PRESENT);
+				DbgInfo("%s: present status is %d\n", mmc_hostname(host->mmc), card_present_status);
+				
+				ggc_dll_voltage_init(host);
+				// when GPIO_SD_CARD_PRESENT is 1, the card is removed
+				if (!card_present_status)
+				{
+					DbgInfo("%s: clear tuning result for power off and card removed\n", mmc_hostname(host->mmc));					
+					ggc_tuning_result_reset(host);
+				}
+				ggc_chip_init(host);
+				
+				gpio_direction_output(GPIO_SD_CARD_PWR, 0);//set PWR GPIO off
+				DbgInfo("%s: pin %d status is %d\n", mmc_hostname(host->mmc), GPIO_SD_CARD_PWR,
+					gpio_get_value(GPIO_SD_CARD_PWR));
+				
+			}
+#endif
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
 			ret = sdhci_msm_setup_vreg(msm_host->pdata,
 					false, false);
+		}
 		if (!ret) {
 			ret = sdhci_msm_setup_pins(msm_host->pdata, false);
 			ret |= sdhci_msm_set_vdd_io_vol(msm_host->pdata,
@@ -2869,6 +2934,43 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
+//add sdcard proc node
+static int sim_card_status_show(struct seq_file *m, void *v)
+{
+        pr_info("sdcard_intr_gpio_value is %d\n",gpio_get_value(GPIO_SD_CARD_PRESENT));
+        seq_printf(m, "%d\n", gpio_get_value(GPIO_SD_CARD_PRESENT));
+        return 0;
+}
+
+static int sim_card_status_proc_open(struct inode *inode, struct file *file)
+{
+        return single_open(file, sim_card_status_show, NULL);
+}
+
+static const struct file_operations sdcard_intr_gpio_value_fops = {
+        .open           = sim_card_status_proc_open,
+        .read           = seq_read,
+        .llseek         = seq_lseek,
+        .release        = single_release,
+};
+
+static int sdcard_intr_init(void)
+{
+
+        struct proc_dir_entry *status_entry;
+
+        status_entry = proc_create("sdcard_intr_gpio_value", 0444, NULL, &sdcard_intr_gpio_value_fops);
+        if (!status_entry){
+                return -ENOMEM;
+        }
+
+        return 0;
+}
+static void sdcard_intr_free(void)
+{
+	remove_proc_entry("sdcard_intr_gpio_value",NULL);
+}
+//add adcard proc node
 
 static ssize_t
 show_polling(struct device *dev, struct device_attribute *attr, char *buf)
@@ -3460,6 +3562,17 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	curr_pwrsave = !!(readl_relaxed(host->ioaddr +
 	msm_host_offset->CORE_VENDOR_SPEC) & CORE_CLK_PWRSAVE);
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+#ifdef CONFIG_MMC_SDHCI_MSM_BH201
+	if ( sdhci_bht_target_host(host)){
+		writel_relaxed(readl_relaxed(host->ioaddr + msm_host_offset->CORE_VENDOR_SPEC)
+					& ~CORE_CLK_PWRSAVE,
+					host->ioaddr + msm_host_offset->CORE_VENDOR_SPEC);
+		}
+	else
+	{
+#endif
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
 	if ((clock > 400000) &&
 	    !curr_pwrsave && card && mmc_host_may_gate_card(card))
 		writel_relaxed(readl_relaxed(host->ioaddr +
@@ -3475,7 +3588,11 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 				msm_host_offset->CORE_VENDOR_SPEC)
 				& ~CORE_CLK_PWRSAVE, host->ioaddr +
 				msm_host_offset->CORE_VENDOR_SPEC);
-
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+#ifdef CONFIG_MMC_SDHCI_MSM_BH201
+	}
+#endif
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
 	sup_clock = sdhci_msm_get_sup_clk_rate(host, clock);
 	if ((curr_ios.timing == MMC_TIMING_UHS_DDR50) ||
 		(curr_ios.timing == MMC_TIMING_MMC_DDR52) ||
@@ -4523,7 +4640,16 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.crypto_engine_reset = sdhci_msm_ice_reset,
 	.set_uhs_signaling = sdhci_msm_set_uhs_signaling,
 	.check_power_status = sdhci_msm_check_power_status,
+	//Add by ZhaoZiqiang for fixing issue#328[data timeout error] begin
+	.set_timeout = sdhci_bht_set_timeout,
+	//Add by ZhaoZiqiang for fixing issue#328[data timeout error] end
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+#ifdef CONFIG_MMC_SDHCI_MSM_BH201
+	.platform_execute_tuning = sdhci_bht_execute_tuning,
+#else
 	.platform_execute_tuning = sdhci_msm_execute_tuning,
+#endif
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
 	.enhanced_strobe = sdhci_msm_enhanced_strobe,
 	.toggle_cdr = sdhci_msm_toggle_cdr,
 	.get_max_segments = sdhci_msm_max_segs,
@@ -4814,6 +4940,13 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	} else {
 		dev_err(&pdev->dev, "No device tree node\n");
 		goto pltfm_free;
+	}
+
+	/*add sdcard proc node*/
+	if(sdcard_intr_init()) {
+		dev_err(&pdev->dev, "creat proc sdcard_intr_gpio_value failed\n");
+	} else {
+		dev_dbg(&pdev->dev, "creat proc sdcard_intr_gpio_value successed\n");
 	}
 
 	/* Setup Clocks */
@@ -5193,12 +5326,14 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		goto vreg_deinit;
 	}
 
+#ifndef CONFIG_MMC_SDHCI_MSM_BH201
 	/*
 	 * To avoid polling and to avoid this R1b command conversion
 	 * to R1 command if the requested busy timeout > host's max
 	 * busy timeout in case of sanitize, erase or any R1b command
 	 */
 	host->mmc->max_busy_timeout = 0;
+#endif
 
 	msm_host->pltfm_init_done = true;
 
@@ -5344,6 +5479,8 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
 		sdhci_msm_bus_unregister(msm_host);
 	}
+	//free sdcard proc node
+	sdcard_intr_free();
 
 	sdhci_pltfm_free(pdev);
 
@@ -5591,6 +5728,7 @@ static struct platform_driver sdhci_msm_driver = {
 };
 
 module_platform_driver(sdhci_msm_driver);
-
+EXPORT_SYMBOL_GPL(sdcard_intr_init);
+EXPORT_SYMBOL_GPL(sdcard_intr_free);
 MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Secure Digital Host Controller Interface driver");
 MODULE_LICENSE("GPL v2");

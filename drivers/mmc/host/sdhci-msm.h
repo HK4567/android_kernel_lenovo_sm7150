@@ -19,6 +19,13 @@
 #include <linux/pm_qos.h>
 #include "sdhci-pltfm.h"
 
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+#define CORE_FREQ_100MHZ	(100 * 1000 * 1000)
+
+#define NUM_TUNING_PHASES		16
+#define MAX_DRV_TYPES_SUPPORTED_HS200	4
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
+
 /* This structure keeps information per regulator */
 struct sdhci_msm_reg_data {
 	/* voltage regulator handle */
@@ -218,6 +225,88 @@ struct sdhci_msm_debug_data {
 	struct sdhci_host copy_host;
 };
 
+//BH201LN driver--ernest.zhang@bayhubtech.com modify at 20190620 begin
+#ifdef CONFIG_MMC_SDHCI_MSM_BH201
+
+#ifndef TUNING_PHASE_SIZE
+#define TUNING_PHASE_SIZE 11
+#endif
+typedef struct
+{
+
+    u32 tx_selb_tb[TUNING_PHASE_SIZE];
+    u32 all_selb_tb[TUNING_PHASE_SIZE];
+    u32 tx_selb_failed_history;
+    int bus_mode;
+//
+    int default_sela;
+    int default_selb;
+    u32 default_delaycode;
+    u32 * dll_voltage_unlock_cnt;
+
+    u32 max_delaycode;
+    u32 min_delaycode;
+    u32  delaycode_narrowdown_index;
+    u32 fail_phase;
+} ggc_bus_mode_cfg_t, * pggc_bus_mode_cfg_t;
+
+typedef enum
+{
+    NO_TUNING = 0,
+    OUTPUT_PASS_TYPE = 1,
+    SET_PHASE_FAIL_TYPE = 2,
+    TUNING_FAIL_TYPE = 3,
+    READ_STATUS_FAIL_TYPE = 4,
+    TUNING_CMD7_TIMEOUT = 5,
+    RETUNING_CASE = 6,
+} tuning_stat_et;
+
+typedef struct ggc_platform_data
+{
+//
+    ggc_bus_mode_cfg_t sdr50;
+    ggc_bus_mode_cfg_t sdr104;
+    pggc_bus_mode_cfg_t  cur_bus_mode;
+//
+    u8 _cur_cfg_data[512];//for write data & cache it for merge
+    u8 _cur_read_buf[512];//only for read
+//
+    u32 ggc_cur_ssc_level;
+
+//
+    int ssc_crc_recovery_retry_cnt;
+
+    u32 crc_retry_cnt;
+//
+
+
+    u32 cclk_ds_18v;
+    u32 cdata_ds_18v;
+    u32 ds_inc_cnt;
+    bool ggc_400k_update_ds_flg;
+    bool ggc_400k_update_ssc_arg_flg;
+
+//
+    bool ggc_ocb_in_check;
+    bool dll_unlock_reinit_flg;
+    u8 driver_strength_reinit_flg;
+    bool tuning_cmd7_timeout_reinit_flg;
+    u32 tuning_cmd7_timeout_reinit_cnt;
+    u32  ggc_400k_setting_change_flg: 1;
+    u32 ggc_cur_sela;
+    u32 ggc_target_selb;
+    u32 target_tuning_pass_win;
+    bool selx_tuning_done_flag;
+    u32 ggc_cmd_tx_selb_failed_range;
+    int ggc_sw_selb_tuning_first_selb;
+    tuning_stat_et ggc_sela_tuning_result[11];
+    int dll_voltage_scan_map[4];
+    int cur_dll_voltage_idx;
+    //bool ggc_read_delay_code_flg;
+} ggc_platform_t;
+//BH201LN driver--ernest.zhang@bayhubtech.com modify at 20190620 end
+#endif
+
 struct sdhci_msm_host {
 	struct platform_device	*pdev;
 	void __iomem *core_mem;    /* MSM SDCC mapped address */
@@ -269,6 +358,14 @@ struct sdhci_msm_host {
 	const struct sdhci_msm_offset *offset;
 	bool core_3_0v_support;
 	bool pltfm_init_done;
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+#ifdef CONFIG_MMC_SDHCI_MSM_BH201
+	ggc_platform_t  ggc;
+	int sdr50_notuning_sela_inject_flag;
+	int sdr50_notuning_crc_error_flag;
+	u32 sdr50_notuning_sela_rx_inject;
+#endif
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
 	struct sdhci_msm_regs_restore regs_restore;
 	bool use_7nm_dll;
 	int soc_min_rev;
@@ -277,6 +374,11 @@ struct sdhci_msm_host {
 };
 
 extern char *saved_command_line;
+
+enum dll_init_context {
+	DLL_INIT_NORMAL = 0,
+	DLL_INIT_FROM_CX_COLLAPSE_EXIT,
+};
 
 void sdhci_msm_pm_qos_irq_init(struct sdhci_host *host);
 void sdhci_msm_pm_qos_irq_vote(struct sdhci_host *host);
@@ -287,6 +389,17 @@ void sdhci_msm_pm_qos_cpu_init(struct sdhci_host *host,
 void sdhci_msm_pm_qos_cpu_vote(struct sdhci_host *host,
 		struct sdhci_msm_pm_qos_latency *latency, int cpu);
 bool sdhci_msm_pm_qos_cpu_unvote(struct sdhci_host *host, int cpu, bool async);
-
-
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+#ifdef CONFIG_MMC_SDHCI_MSM_BH201
+int sdhci_msm_hs400_dll_calibration(struct sdhci_host *host);
+//int msm_init_cm_dll(struct sdhci_host *host);
+int msm_init_cm_dll(struct sdhci_host *host, enum dll_init_context init_context);
+int msm_config_cm_dll_phase(struct sdhci_host *host, u8 phase);
+void sdhci_msm_set_mmc_drv_type(struct sdhci_host *host, u32 opcode,
+		u8 drv_type);
+int msm_find_most_appropriate_phase(struct sdhci_host *host,
+				u8 *phase_table, u8 total_phases);
+int sdhci_msm_execute_tuning(struct sdhci_host *host, u32 opcode);
+#endif
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
 #endif /* __SDHCI_MSM_H__ */

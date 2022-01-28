@@ -54,6 +54,14 @@
 #include "sd_ops.h"
 #include "sdio_ops.h"
 
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+#ifdef CONFIG_MMC_SDHCI_MSM_BH201
+#include "../host/sdhci.h"
+#else
+#define SDHCI_TIMEOUT_CONTROL	0x2E
+#endif
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
+
 /* If the device is not responding */
 #define MMC_CORE_TIMEOUT_MS	(10 * 60 * 1000) /* 10 minute timeout */
 
@@ -513,6 +521,17 @@ static int mmc_devfreq_set_target(struct device *dev,
 
 	pr_debug("%s: target freq = %lu (%s)\n", mmc_hostname(host),
 		*freq, current->comm);
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+#ifdef CONFIG_MMC_SDHCI_MSM_BH201
+	{
+		struct sdhci_host *sdhost = mmc_priv(host);
+
+		if (sdhci_bht_target_host(sdhost)) {
+			goto out;
+		}
+	}
+#endif
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
 
 	spin_lock_bh(&clk_scaling->lock);
 	if (clk_scaling->target_freq == *freq ||
@@ -1213,9 +1232,16 @@ static int mmc_mrq_prep(struct mmc_host *host, struct mmc_request *mrq)
 static int mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 {
 	int err;
-
+	#ifdef CONFIG_MMC_SDHCI_MSM_BH201
+	struct sdhci_host * host_sdhci = mmc_priv(host);
 	mmc_retune_hold(host);
-
+	//Add by ZhaoZiqiang for timeout controller register setting debug begin
+	if (sdhci_readb(host_sdhci, SDHCI_TIMEOUT_CONTROL)!= 0xE)
+	{
+		pr_debug("TEST_print: host reg SDHCI_TIMEOUT_CONTROL is 0x%X\n", sdhci_readb(host_sdhci, SDHCI_TIMEOUT_CONTROL));
+	}
+	//Add by ZhaoZiqiang for timeout controller register setting debug end
+	#endif
 	if (mmc_card_removed(host->card))
 		return -ENOMEDIUM;
 

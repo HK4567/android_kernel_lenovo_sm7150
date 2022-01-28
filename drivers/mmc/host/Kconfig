@@ -439,6 +439,18 @@ config MMC_SDHCI_MSM
 
 	  If unsure, say N.
 
+# huaqin add for SD card bringup by liufurong at 20190201 start
+config MMC_SDHCI_MSM_BH201
+	bool "Bayhub BH201 SD bridge for Qualcomm SDHCI Controller Support"
+	depends on MMC_SDHCI_MSM
+	help
+	  This selects the Bayhub BH201 SD bus bridge additions for get better
+	  signal integrity.
+
+	  Select this if you have BH201 supported for SDHCI on QTI chipset.
+	  If unsure, say N.
+# huaqin add for SD card bringup by liufurong at 20190201 end
+
 config MMC_SDHCI_MSM_ICE
 	bool "Qualcomm Technologies, Inc Inline Crypto Engine for SDHCI core"
 	depends on MMC_SDHCI_MSM && CRYPTO_DEV_QCOM_ICE

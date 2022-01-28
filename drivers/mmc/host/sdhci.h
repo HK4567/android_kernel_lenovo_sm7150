@@ -880,4 +880,19 @@ bool sdhci_cqe_irq(struct sdhci_host *host, u32 intmask, int *cmd_error,
 void sdhci_dumpregs(struct sdhci_host *host);
 
 void sdhci_cfg_irq(struct sdhci_host *host, bool enable, bool sync);
+
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+#ifdef CONFIG_MMC_SDHCI_MSM_BH201
+static inline bool sdhci_bht_target_host(struct sdhci_host *host)
+{
+	return 0 == strcmp(host->hw_name, "8804000.sdhci");
+}
+
+#define   GGC_CFG_DATA {0x07000000, 0x07364022, 0x01015412, 0x01062400,\
+  0x10400076, 0x00025432, 0x01046076, 0x62011000,\
+  0x30503106, 0x64141711, 0x10057513, 0x00336200,\
+  0x00020006, 0x40000400, 0x12200310, 0x4A414177}
+#endif
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
+
 #endif /* __SDHCI_HW_H */
