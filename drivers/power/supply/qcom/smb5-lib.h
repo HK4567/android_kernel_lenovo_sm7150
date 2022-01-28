@@ -33,6 +33,7 @@ enum print_reason {
 	PR_OTG		= BIT(4),
 	PR_WLS		= BIT(5),
 };
+#define CONFIG_POGO_CHARGER
 
 #define DEFAULT_VOTER			"DEFAULT_VOTER"
 #define USER_VOTER			"USER_VOTER"
@@ -99,15 +100,16 @@ enum print_reason {
 #define SDP_100_MA			100000
 #define SDP_CURRENT_UA			500000
 #define CDP_CURRENT_UA			1500000
-#define DCP_CURRENT_UA			1500000
-#define HVDCP_CURRENT_UA		3000000
+#define DCP_CURRENT_UA			2000000
+#define HVDCP_CURRENT_UA		2000000
 #define TYPEC_DEFAULT_CURRENT_UA	900000
 #define TYPEC_MEDIUM_CURRENT_UA		1500000
 #define TYPEC_HIGH_CURRENT_UA		3000000
 #define DCIN_ICL_MIN_UA			100000
 #define DCIN_ICL_MAX_UA			1500000
 #define DCIN_ICL_STEP_UA		100000
-
+#define POGO_CURRENT_UA		2000000
+#define SDP_FLOAT_UA			500000
 #define ROLE_REVERSAL_DELAY_MS		2000
 
 enum smb_mode {
@@ -405,6 +407,7 @@ struct smb_charger {
 	struct power_supply		*usb_psy;
 	struct power_supply		*dc_psy;
 	struct power_supply		*bms_psy;
+	struct power_supply		*exfg_psy;
 	struct power_supply		*usb_main_psy;
 	struct power_supply		*usb_port_psy;
 	struct power_supply		*wls_psy;
@@ -466,7 +469,9 @@ struct smb_charger {
 	struct delayed_work	role_reversal_check;
 	struct delayed_work	pr_swap_detach_work;
 	struct delayed_work	pr_lock_clear_work;
-
+#ifdef FACTORY_VERSION
+	struct delayed_work	factory_work;
+#endif	
 	struct alarm		lpd_recheck_timer;
 	struct alarm		moisture_protection_alarm;
 	struct alarm		chg_termination_alarm;
@@ -606,6 +611,14 @@ struct smb_charger {
 	int			dcin_uv_count;
 	ktime_t			dcin_uv_last_time;
 	int			last_wls_vout;
+
+	/* debug */
+	int debug_temp;
+#ifdef CONFIG_POGO_CHARGER
+	int irq_pogo;
+	int irq_typec;
+	int pogo_on;
+#endif
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
@@ -665,6 +678,9 @@ irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data);
 irqreturn_t temp_change_irq_handler(int irq, void *data);
 irqreturn_t usbin_ov_irq_handler(int irq, void *data);
 irqreturn_t sdam_sts_change_irq_handler(int irq, void *data);
+#ifdef CONFIG_POGO_CHARGER
+irqreturn_t pogo_irq_handler(int irq, void *data);
+#endif
 int smblib_get_prop_input_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_present(struct smb_charger *chg,
@@ -798,6 +814,11 @@ int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 int smblib_force_dr_mode(struct smb_charger *chg, int mode);
 int smblib_get_prop_from_bms(struct smb_charger *chg,
 				enum power_supply_property psp,
+				union power_supply_propval *val);
+int smblib_get_prop_from_exfg(struct smb_charger *chg,
+				enum power_supply_property psp,
+				union power_supply_propval *val);
+int smblib_get_prop_exfg_use(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_iio_channel(struct smb_charger *chg, const char *propname,
 					struct iio_channel **chan);

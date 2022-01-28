@@ -1304,7 +1304,8 @@ static void smb1390_taper_work(struct work_struct *work)
 				fcc_uA, fcc_cp_ua, main_fcc_ua,
 				(chip->min_ilim_ua*2));
 
-			if (fcc_cp_ua < (chip->min_ilim_ua * 2)) {
+			if (fcc_cp_ua < (chip->min_ilim_ua * 2 + main_fcc_ua)) {
+			//if (fcc_cp_ua < (chip->min_ilim_ua * 2)) {
 				vote(chip->disable_votable, TAPER_END_VOTER,
 								true, 0);
 				/*

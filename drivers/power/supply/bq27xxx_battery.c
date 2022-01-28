@@ -865,7 +865,7 @@ static inline int bq27xxx_read(struct bq27xxx_device_info *di, int reg_index,
 
 	ret = di->bus.read(di, di->regs[reg_index], single);
 	if (ret < 0)
-		dev_dbg(di->dev, "failed to read register 0x%02x (index %d)\n",
+		dev_err(di->dev, "failed to read register 0x%02x (index %d)\n",
 			di->regs[reg_index], reg_index);
 
 	return ret;
@@ -884,7 +884,7 @@ static inline int bq27xxx_write(struct bq27xxx_device_info *di, int reg_index,
 
 	ret = di->bus.write(di, di->regs[reg_index], value, single);
 	if (ret < 0)
-		dev_dbg(di->dev, "failed to write register 0x%02x (index %d)\n",
+		dev_err(di->dev, "failed to write register 0x%02x (index %d)\n",
 			di->regs[reg_index], reg_index);
 
 	return ret;
@@ -903,7 +903,7 @@ static inline int bq27xxx_read_block(struct bq27xxx_device_info *di, int reg_ind
 
 	ret = di->bus.read_bulk(di, di->regs[reg_index], data, len);
 	if (ret < 0)
-		dev_dbg(di->dev, "failed to read_bulk register 0x%02x (index %d)\n",
+		dev_err(di->dev, "failed to read_bulk register 0x%02x (index %d)\n",
 			di->regs[reg_index], reg_index);
 
 	return ret;
@@ -922,7 +922,7 @@ static inline int bq27xxx_write_block(struct bq27xxx_device_info *di, int reg_in
 
 	ret = di->bus.write_bulk(di, di->regs[reg_index], data, len);
 	if (ret < 0)
-		dev_dbg(di->dev, "failed to write_bulk register 0x%02x (index %d)\n",
+		dev_err(di->dev, "failed to write_bulk register 0x%02x (index %d)\n",
 			di->regs[reg_index], reg_index);
 
 	return ret;
@@ -1287,7 +1287,7 @@ static int bq27xxx_battery_read_soc(struct bq27xxx_device_info *di)
 		soc = bq27xxx_read(di, BQ27XXX_REG_SOC, false);
 
 	if (soc < 0)
-		dev_dbg(di->dev, "error reading State-of-Charge\n");
+		dev_err(di->dev, "error reading State-of-Charge\n");
 
 	return soc;
 }
@@ -1302,7 +1302,7 @@ static int bq27xxx_battery_read_charge(struct bq27xxx_device_info *di, u8 reg)
 
 	charge = bq27xxx_read(di, reg, false);
 	if (charge < 0) {
-		dev_dbg(di->dev, "error reading charge register %02x: %d\n",
+		dev_err(di->dev, "error reading charge register %02x: %d\n",
 			reg, charge);
 		return charge;
 	}
@@ -1355,7 +1355,7 @@ static int bq27xxx_battery_read_dcap(struct bq27xxx_device_info *di)
 		dcap = bq27xxx_read(di, BQ27XXX_REG_DCAP, false);
 
 	if (dcap < 0) {
-		dev_dbg(di->dev, "error reading initial last measured discharge\n");
+		dev_err(di->dev, "error reading initial last measured discharge\n");
 		return dcap;
 	}
 
@@ -1377,7 +1377,7 @@ static int bq27xxx_battery_read_energy(struct bq27xxx_device_info *di)
 
 	ae = bq27xxx_read(di, BQ27XXX_REG_AE, false);
 	if (ae < 0) {
-		dev_dbg(di->dev, "error reading available energy\n");
+		dev_err(di->dev, "error reading available energy\n");
 		return ae;
 	}
 
@@ -1399,7 +1399,7 @@ static int bq27xxx_battery_read_temperature(struct bq27xxx_device_info *di)
 
 	temp = bq27xxx_read(di, BQ27XXX_REG_TEMP, false);
 	if (temp < 0) {
-		dev_err(di->dev, "error reading temperature\n");
+		dev_err(di->dev, "error reading temperature:%d\n",temp);
 		return temp;
 	}
 
@@ -1434,7 +1434,7 @@ static int bq27xxx_battery_read_time(struct bq27xxx_device_info *di, u8 reg)
 
 	tval = bq27xxx_read(di, reg, false);
 	if (tval < 0) {
-		dev_dbg(di->dev, "error reading time register %02x: %d\n",
+		dev_err(di->dev, "error reading time register %02x: %d\n",
 			reg, tval);
 		return tval;
 	}
@@ -1539,7 +1539,7 @@ void bq27xxx_battery_update(struct bq27xxx_device_info *di)
 	if (cache.flags >= 0) {
 		cache.temperature = bq27xxx_battery_read_temperature(di);
 		if (has_ci_flag && (cache.flags & BQ27000_FLAG_CI)) {
-			dev_info_once(di->dev, "battery is not calibrated! ignoring capacity values\n");
+			dev_err(di->dev, "battery is not calibrated! ignoring capacity values\n");
 			cache.capacity = -ENODATA;
 			cache.energy = -ENODATA;
 			cache.time_to_empty = -ENODATA;
@@ -1570,11 +1570,13 @@ void bq27xxx_battery_update(struct bq27xxx_device_info *di)
 			di->charge_design_full = bq27xxx_battery_read_dcap(di);
 	}
 
-	if (di->cache.capacity != cache.capacity)
+	if ((di->cache.capacity != cache.capacity)
+			|| (di->cache.temperature != cache.temperature))
 		power_supply_changed(di->bat);
 
 	if (memcmp(&di->cache, &cache, sizeof(cache)) != 0)
 		di->cache = cache;
+	dev_err(di->dev, "cap:%d,temp:%d,health:%d\n",di->cache.capacity,di->cache.temperature,di->cache.health);
 
 	di->last_update = jiffies;
 }
@@ -1612,7 +1614,7 @@ static int bq27xxx_battery_current(struct bq27xxx_device_info *di,
 	if (di->opts & BQ27XXX_O_ZERO) {
 		flags = bq27xxx_read(di, BQ27XXX_REG_FLAGS, true);
 		if (flags & BQ27000_FLAG_CHGS) {
-			dev_dbg(di->dev, "negative current!\n");
+			dev_err(di->dev, "negative current!\n");
 			curr = -curr;
 		}
 
@@ -1722,7 +1724,7 @@ static int bq27xxx_battery_get_property(struct power_supply *psy,
 	struct bq27xxx_device_info *di = power_supply_get_drvdata(psy);
 
 	mutex_lock(&di->lock);
-	if (time_is_before_jiffies(di->last_update + 5 * HZ)) {
+	if (time_is_before_jiffies(di->last_update + 5 * HZ) || (di->cache.flags < 0)) {
 		cancel_delayed_work_sync(&di->work);
 		bq27xxx_battery_poll(&di->work.work);
 	}

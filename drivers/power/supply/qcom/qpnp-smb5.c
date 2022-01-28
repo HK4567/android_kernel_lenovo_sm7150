@@ -29,6 +29,12 @@
 #include "smb5-reg.h"
 #include "smb5-lib.h"
 #include "schgm-flash.h"
+#include <linux/of_gpio.h>
+
+int boost_en;
+EXPORT_SYMBOL(boost_en);
+int typec_det;
+int pogo_det;
 
 static struct smb_params smb5_pmi632_params = {
 	.fcc			= {
@@ -236,6 +242,11 @@ struct smb5 {
 static int __debug_mask;
 module_param_named(
 	debug_mask, __debug_mask, int, 0600
+);
+
+static int __debug_flag = 0;
+module_param_named(
+	debug_flag, __debug_flag, int, 0600
 );
 
 static int __pd_disabled;
@@ -474,6 +485,7 @@ static int smb5_parse_dt(struct smb5 *chip)
 
 	rc = of_property_read_u32(node, "qcom,chg-term-current-ma",
 			&chip->dt.term_current_thresh_hi_ma);
+	//chip->dt.term_current_thresh_hi_ma *=-1; 
 
 	if (chip->dt.term_current_src == ITERM_SRC_ADC)
 		rc = of_property_read_u32(node, "qcom,chg-term-base-current-ma",
@@ -669,7 +681,22 @@ static int smb5_parse_dt(struct smb5 *chip)
 			&tmp);
 	if (!rc && tmp < DCIN_ICL_MAX_UA)
 		chg->wls_icl_ua = tmp;
-
+	boost_en = of_get_named_gpio(node,"qcom,boost_en", 0);
+	if(boost_en < 0){
+		pr_err( "no gpio boost_en\n");
+		return -1;
+	}
+	typec_det = of_get_named_gpio(node,"qcom,typec_det-gpio", 0);
+	if(typec_det < 0){
+		pr_err( "no gpio typec_det\n");
+		return -1;
+	}
+	pogo_det = of_get_named_gpio(node,"qcom,pogo_det-gpio", 0);
+	if(pogo_det < 0){
+		pr_err( "no gpio pogo_det\n");
+		return -1;
+	}
+	pr_err( "boost_en :%d\n",boost_en);
 	return 0;
 }
 
@@ -1590,6 +1617,9 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_FORCE_RECHARGE,
 	POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE,
+	POWER_SUPPLY_PROP_CHARGING_ENABLED,
+	POWER_SUPPLY_PROP_HAVE_EXFG,
+	POWER_SUPPLY_PROP_DEBUG_TEMP,
 };
 
 #define DEBUG_ACCESSORY_TEMP_DECIDEGC	250
@@ -1641,7 +1671,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		val->intval = chg->sw_jeita_enabled;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		rc = smblib_get_prop_from_bms(chg,
+		rc = smblib_get_prop_from_exfg(chg,
 				POWER_SUPPLY_PROP_VOLTAGE_NOW, val);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
@@ -1653,7 +1683,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 				QNOVO_VOTER);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		rc = smblib_get_prop_from_bms(chg,
+		rc = smblib_get_prop_from_exfg(chg,
 				POWER_SUPPLY_PROP_CURRENT_NOW, val);
 		if (!rc)
 			val->intval *= (-1);
@@ -1673,11 +1703,17 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_batt_iterm(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		if (chg->typec_mode == POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY)
-			val->intval = DEBUG_ACCESSORY_TEMP_DECIDEGC;
-		else
-			rc = smblib_get_prop_from_bms(chg,
+//		if (chg->typec_mode == POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY)
+//			val->intval = DEBUG_ACCESSORY_TEMP_DECIDEGC;
+//		else
+			rc = smblib_get_prop_from_exfg(chg,
 						POWER_SUPPLY_PROP_TEMP, val);
+		if (__debug_flag) {
+			val->intval = chg->debug_temp;
+		}
+		break;
+	case POWER_SUPPLY_PROP_DEBUG_TEMP:
+		val->intval = chg->debug_temp;
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
@@ -1710,7 +1746,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 				POWER_SUPPLY_PROP_CHARGE_COUNTER, val);
 		break;
 	case POWER_SUPPLY_PROP_CYCLE_COUNT:
-		rc = smblib_get_prop_from_bms(chg,
+		rc = smblib_get_prop_from_exfg(chg,
 				POWER_SUPPLY_PROP_CYCLE_COUNT, val);
 		break;
 	case POWER_SUPPLY_PROP_RECHARGE_SOC:
@@ -1720,7 +1756,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
-		rc = smblib_get_prop_from_bms(chg,
+		rc = smblib_get_prop_from_exfg(chg,
 				POWER_SUPPLY_PROP_CHARGE_FULL, val);
 		break;
 	case POWER_SUPPLY_PROP_FORCE_RECHARGE:
@@ -1729,6 +1765,17 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE:
 		val->intval = chg->fcc_stepper_enable;
 		break;
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		val->intval = get_effective_result(chg->chg_disable_votable);
+		if (val->intval < 0) /* no votes */
+			val->intval = 1;
+		else
+			val->intval = !val->intval;
+		break;
+	case POWER_SUPPLY_PROP_HAVE_EXFG:
+		smblib_get_prop_exfg_use(chg, val);
+		break;
+
 	default:
 		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
@@ -1830,6 +1877,16 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE:
 		chg->fcc_stepper_enable = val->intval;
 		break;
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		vote(chg->chg_disable_votable, USER_VOTER,
+				!val->intval, 0);
+		break;
+	case POWER_SUPPLY_PROP_DEBUG_TEMP:
+		chg->debug_temp = val->intval;
+		if (__debug_flag) {
+			power_supply_changed(chg->exfg_psy);
+		}
+		break;
 	default:
 		rc = -EINVAL;
 	}
@@ -1851,6 +1908,8 @@ static int smb5_batt_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
 	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
 	case POWER_SUPPLY_PROP_DIE_HEALTH:
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+	case POWER_SUPPLY_PROP_DEBUG_TEMP:
 		return 1;
 	default:
 		break;
@@ -2281,15 +2340,15 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		 * Enable detection of unoriented debug
 		 * accessory in source mode
 		 */
-		rc = smblib_masked_write(chg, DEBUG_ACCESS_SRC_CFG_REG,
-					 EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT,
-					 EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT);
-		if (rc < 0) {
-			dev_err(chg->dev,
-				"Couldn't configure TYPE_C_DEBUG_ACCESS_SRC_CFG_REG rc=%d\n",
-					rc);
-			return rc;
-		}
+	rc = smblib_masked_write(chg, DEBUG_ACCESS_SRC_CFG_REG,
+				 EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT,
+				 EN_UNORIENTED_DEBUG_ACCESS_SRC_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't configure TYPE_C_DEBUG_ACCESS_SRC_CFG_REG rc=%d\n",
+				rc);
+		return rc;
+	}
 
 		rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
 				USBIN_IN_COLLAPSE_GF_SEL_MASK |
@@ -2945,7 +3004,29 @@ static int smb5_init_hw(struct smb5 *chip)
 			return rc;
 		}
 	}
-
+	rc = smblib_masked_write(chg, DEBUG_ACCESS_SRN_CFG_REG,
+                       EN_DEBUG_ACCESS_SNK_BIT, EN_DEBUG_ACCESS_SNK_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't configure DEBUG_ACCESS_SRN_CFG_REG rc=%d\n",
+			 rc);
+		return rc;
+	}
+	rc = smblib_masked_write(chg, CHGR_AUTO_FLOAT_VOLTAGE_COMPENSATION_REG,
+                       EN_AFVC_BIT | EN_TAPER_AFVC_BIT, EN_AFVC_BIT | EN_TAPER_AFVC_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't configure CHGR_AUTO_FLOAT_VOLTAGE_COMPENSATION_REG rc=%d\n",
+			 rc);
+		return rc;
+	}
+	rc = smblib_write(chg, DCDC_AFVC_RESISTANCE_CFG,0x0e);//afvc resistance value = 2moumu*0x0e
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't configure DCDC_AFVC_RESISTANCE_CFG rc=%d\n",
+			 rc);
+		return rc;
+	}
 	return rc;
 }
 
@@ -3007,7 +3088,9 @@ static int smb5_determine_initial_status(struct smb5 *chip)
 	wdog_bark_irq_handler(0, &irq_data);
 	typec_or_rid_detection_change_irq_handler(0, &irq_data);
 	wdog_snarl_irq_handler(0, &irq_data);
-
+#ifdef CONFIG_POGO_CHARGER
+	usb_plugin_irq_handler(0, &irq_data);
+#endif
 	return 0;
 }
 
@@ -3343,7 +3426,9 @@ static int smb5_request_interrupts(struct smb5 *chip)
 	int rc = 0;
 	const char *name;
 	struct property *prop;
-
+#ifdef CONFIG_POGO_CHARGER
+	unsigned long flags;
+#endif	
 	for_each_available_child_of_node(node, child) {
 		of_property_for_each_string(child, "interrupt-names",
 					    prop, name) {
@@ -3355,7 +3440,28 @@ static int smb5_request_interrupts(struct smb5 *chip)
 
 	vote(chg->limited_irq_disable_votable, CHARGER_TYPE_VOTER, true, 0);
 	vote(chg->hdc_irq_disable_votable, CHARGER_TYPE_VOTER, true, 0);
+#ifdef CONFIG_POGO_CHARGER
+	flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT;
 
+	chg->irq_pogo = gpio_to_irq(pogo_det);
+	rc = devm_request_threaded_irq(chg->dev,chg->irq_pogo,NULL,
+					pogo_irq_handler, flags,
+					"pogo_irq", chg);
+	if (rc < 0) {
+		pr_err("Failed to request irq_pogo %d\n", rc);
+		return rc;
+	}
+#if 0
+	chg->irq_typec= gpio_to_irq(typec_det);
+	rc = devm_request_threaded_irq(chg->dev, chg->irq_typec,NULL,
+					pogo_irq_handler, flags,
+					"typec_irq", chg);
+	if (rc< 0) {
+		pr_err("Failed to request irq_typec: %d\n", rc);
+		return rc;
+	}
+#endif
+#endif	
 	return rc;
 }
 
@@ -3515,6 +3621,7 @@ static int smb5_probe(struct platform_device *pdev)
 	chg->connector_health = -EINVAL;
 	chg->otg_present = false;
 	chg->main_fcc_max = -EINVAL;
+	chg->debug_temp = 250;
 
 	chg->regmap = dev_get_regmap(chg->dev->parent, NULL);
 	if (!chg->regmap) {

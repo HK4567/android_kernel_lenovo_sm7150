@@ -144,6 +144,7 @@ static int bq27xxx_battery_i2c_bulk_write(struct bq27xxx_device_info *di,
 	return 0;
 }
 
+extern int register_hardware_info(const char *name, const char *model);
 static int bq27xxx_battery_i2c_probe(struct i2c_client *client,
 				     const struct i2c_device_id *id)
 {
@@ -176,7 +177,10 @@ static int bq27xxx_battery_i2c_probe(struct i2c_client *client,
 	di->bus.write = bq27xxx_battery_i2c_write;
 	di->bus.read_bulk = bq27xxx_battery_i2c_bulk_read;
 	di->bus.write_bulk = bq27xxx_battery_i2c_bulk_write;
-
+	ret = bq27xxx_battery_i2c_read(di,0x0a,true);
+	if(ret < 0){
+		goto err_failed;
+	}
 	ret = bq27xxx_battery_setup(di);
 	if (ret)
 		goto err_failed;
@@ -198,7 +202,7 @@ static int bq27xxx_battery_i2c_probe(struct i2c_client *client,
 			return ret;
 		}
 	}
-
+	register_hardware_info("batteryinfo","bq27xxx_battery_i2c");
 	return 0;
 
 err_mem:
