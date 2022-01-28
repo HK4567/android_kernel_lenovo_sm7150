@@ -336,7 +336,11 @@
 #define KEY_RFKILL		247	/* Key that controls all radios */
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
-
+//add for yy 0109
+#define KEY_SWITCHLANUAGE     633
+#define KEY_NC            634 /*notify center*/
+#define KEY_FULLSCREEN 635
+//add for yy 0109 over
 /* Code 255 is reserved for special needs of AT keyboard driver */
 
 #define BTN_MISC		0x100
