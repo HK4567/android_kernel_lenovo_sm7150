@@ -32,6 +32,8 @@ enum {
 	Opt_multiuser,
 	Opt_userid,
 	Opt_reserved_mb,
+	/* add for limit write to data partition */
+	Opt_reserved_uid,
 	Opt_gid_derivation,
 	Opt_default_normal,
 	Opt_nocache,
@@ -51,6 +53,8 @@ static const match_table_t sdcardfs_tokens = {
 	{Opt_default_normal, "default_normal"},
 	{Opt_unshared_obb, "unshared_obb"},
 	{Opt_reserved_mb, "reserved_mb=%u"},
+	/* add for limit write to data partition */
+	{Opt_reserved_uid, "reserved_uid=%u"},
 	{Opt_nocache, "nocache"},
 	{Opt_err, NULL}
 };
@@ -72,6 +76,8 @@ static int parse_options(struct super_block *sb, char *options, int silent,
 	vfsopts->gid = 0;
 	/* by default, 0MB is reserved */
 	opts->reserved_mb = 0;
+	/* add for limit write to data partition */
+	opts->reserved_uid = 0;
 	/* by default, gid derivation is off */
 	opts->gid_derivation = false;
 	opts->default_normal = false;
@@ -127,6 +133,13 @@ static int parse_options(struct super_block *sb, char *options, int silent,
 				return 0;
 			opts->reserved_mb = option;
 			break;
+		/* add for limit write to data partition, begin */
+		case Opt_reserved_uid:
+			if (match_int(&args[0], &option))
+				return 0;
+			opts->reserved_uid = option;
+			break;
+		/* add for limit write to data partition, end */
 		case Opt_gid_derivation:
 			opts->gid_derivation = true;
 			break;
@@ -153,6 +166,12 @@ static int parse_options(struct super_block *sb, char *options, int silent,
 							opts->fs_low_uid);
 		pr_info("sdcardfs : options - gid:%d\n",
 							opts->fs_low_gid);
+		/* add for limit write to data partition, begin */
+		pr_info("sdcardfs : options - reserved_mb:%d\n",
+							opts->reserved_mb);
+		pr_info("sdcardfs : options - reserved_uid:%d\n",
+							opts->reserved_uid);
+		/* add for limit write to data partition, end */
 	}
 
 	return 0;
@@ -199,6 +218,8 @@ int parse_options_remount(struct super_block *sb, char *options, int silent,
 		case Opt_fsuid:
 		case Opt_fsgid:
 		case Opt_reserved_mb:
+		/* add for limit write to data partition */
+		case Opt_reserved_uid:
 		case Opt_gid_derivation:
 			if (!silent)
 				pr_warn("Option \"%s\" can't be changed during remount\n", p);
