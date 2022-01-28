@@ -1287,5 +1287,14 @@ config TOUCHSCREEN_SYNAPTICS_TCM
 	  If unsure, say N.
 
 source "drivers/input/touchscreen/synaptics_tcm/Kconfig"
+config TOUCHSCREEN_GOODIX_CHIPSET
+        bool "goodix DSX Touchscreen Driver"
+        depends on I2C
+        help
+          Say Y here if you have a Synaptics Touchscreen.
+
+          If unsure, say N.
+
+source "drivers/input/touchscreen/goodix/Kconfig"
 
 endif
