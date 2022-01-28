@@ -266,6 +266,8 @@ static inline void limit_reserve_root(struct f2fs_sb_info *sbi)
 {
 	block_t limit = min((sbi->user_block_count << 1) / 1000,
 			sbi->user_block_count - sbi->reserved_blocks);
+	/* add for limit data partition writen */
+	limit = max(limit, (block_t)51200);   // reserve size must be greater than 200M
 
 	/* limit is 0.2% */
 	if (test_opt(sbi, RESERVE_ROOT) &&
