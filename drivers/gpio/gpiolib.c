@@ -27,6 +27,7 @@
 #include <linux/poll.h>
 #include <linux/timekeeping.h>
 #include <uapi/linux/gpio.h>
+#include <linux/string.h>
 
 #include "gpiolib.h"
 
@@ -3773,9 +3774,12 @@ static int gpiolib_seq_show(struct seq_file *s, void *v)
 		seq_printf(s, ", can sleep");
 	seq_printf(s, ":\n");
 
-	if (chip->dbg_show)
-		chip->dbg_show(s, chip);
-	else
+	if (chip->dbg_show) {
+		if(!strstr(chip->label, "lpi_pinctrl")) {
+			chip->dbg_show(s, chip);
+		}
+	}
+	//else
 		gpiolib_dbg_show(s, gdev);
 
 	return 0;
