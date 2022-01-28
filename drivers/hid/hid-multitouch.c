@@ -184,7 +184,7 @@ static void mt_post_parse(struct mt_device *td);
  * these device-dependent functions determine what slot corresponds
  * to a valid contact that was just read.
  */
-
+extern bool irq_wake_enabled;
 static int cypress_compute_slot(struct mt_device *td)
 {
 	if (td->curdata.contactid != 0 || td->num_received == 0)
@@ -1032,7 +1032,21 @@ static void mt_report(struct hid_device *hid, struct hid_report *report)
 {
 	struct mt_device *td = hid_get_drvdata(hid);
 	struct hid_field *field = report->field[0];
+//printk("hid mt_report . \n");
+	//add for wakeup by anykey
+if(irq_wake_enabled==true)
+{
+  if (field && field->hidinput && field->hidinput->input){
+	input_report_key(field->hidinput->input,KEY_POWER,1);
+	input_sync(field->hidinput->input);
+	input_report_key(field->hidinput->input,KEY_POWER,0);
+	input_sync(field->hidinput->input);
+	irq_wake_enabled=false;
+	printk("mt_report report power key .\n");
+	return;
+  }
 
+}//add for wakeup by anykey
 	if (!(hid->claimed & HID_CLAIMED_INPUT))
 		return;
 
@@ -1203,7 +1217,7 @@ static int mt_input_configured(struct hid_device *hdev, struct hid_input *hi)
 			hi->input->name = name;
 		}
 	}
-
+__set_bit(KEY_POWER, hi->input->keybit);
 	return 0;
 }
 
@@ -1281,7 +1295,7 @@ static int mt_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	int ret, i;
 	struct mt_device *td;
 	struct mt_class *mtclass = mt_classes; /* MT_CLS_DEFAULT */
-
+printk(" hid mt_probe");
 	for (i = 0; mt_classes[i].name ; i++) {
 		if (id->driver_data == mt_classes[i].name) {
 			mtclass = &(mt_classes[i]);
