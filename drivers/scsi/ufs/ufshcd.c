@@ -10859,6 +10859,56 @@ static void ufshcd_add_desc_sysfs_nodes(struct device *dev)
 static void ufshcd_remove_desc_sysfs_nodes(struct device *dev)
 {
 	sysfs_remove_groups(&dev->kobj, ufs_sysfs_groups);
+static int next_power_of_2(int num)
+{
+	if (num <= 0 || num > (1<<30)) {
+                pr_err("max:%d, min:0\n", (1<<30));
+		return -1;
+        }
+
+	num -= 1;
+	num |= num >> 16;
+	num |= num >> 8;
+	num |= num >> 4;
+	num |= num >> 2;
+	num |= num >> 1;
+
+	return num+1;
+}
+
+static ssize_t ufshcd_size_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	int i = 0, err;
+	int buff_len = QUERY_DESC_GEOMETRY_DEF_SIZE;
+	u8 desc_buf[QUERY_DESC_GEOMETRY_DEF_SIZE], temp;
+        u64 val = 0, temp_size;
+
+	pm_runtime_get_sync(hba->dev);
+        err = ufshcd_read_desc(hba, QUERY_DESC_IDN_GEOMETRY, 0, desc_buf, buff_len);
+	pm_runtime_put_sync(hba->dev);
+
+        for (i = 0; i < 8; i++) {
+            temp = *(u8 *)&desc_buf[i+4];
+            val += (temp << (7-i)*8);
+            //pr_err("===== %x, %x, %d, %x\n", temp, (temp << (7-i)*8), (7-i)*8, val);
+        }
+
+        temp_size = (val * 512)/(1024*1024*1024);
+        pr_err("=====%x %d, %d\n", val, temp_size, next_power_of_2(temp_size));
+
+        return sprintf(buf, "%d", next_power_of_2(temp_size));
+}
+
+static void ufshcd_add_size_sysfs_nodes(struct ufs_hba *hba)
+{
+	hba->size_attr.show = ufshcd_size_show;
+	sysfs_attr_init(&hba->size_attr.attr);
+	hba->size_attr.attr.name = "size";
+	hba->size_attr.attr.mode = 0444;
+	if (device_create_file(hba->dev, &hba->size_attr))
+		dev_err(hba->dev, "Failed to create sysfs for size\n");
 }
 
 static inline void ufshcd_add_sysfs_nodes(struct ufs_hba *hba)
@@ -10866,6 +10916,7 @@ static inline void ufshcd_add_sysfs_nodes(struct ufs_hba *hba)
 	ufshcd_add_rpm_lvl_sysfs_nodes(hba);
 	ufshcd_add_spm_lvl_sysfs_nodes(hba);
 	ufshcd_add_desc_sysfs_nodes(hba->dev);
+	ufshcd_add_size_sysfs_nodes(hba);
 }
 
 static inline void ufshcd_remove_sysfs_nodes(struct ufs_hba *hba)
@@ -10873,6 +10924,7 @@ static inline void ufshcd_remove_sysfs_nodes(struct ufs_hba *hba)
 	device_remove_file(hba->dev, &hba->rpm_lvl_attr);
 	device_remove_file(hba->dev, &hba->spm_lvl_attr);
 	ufshcd_remove_desc_sysfs_nodes(hba->dev);
+	device_remove_file(hba->dev, &hba->size_attr);
 }
 
 static void __ufshcd_shutdown_clkscaling(struct ufs_hba *hba)
