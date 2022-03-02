@@ -46,7 +46,6 @@
 /* huaqin add for SD card bringup by liufurong at 20190201 start */
 #include "sdhci-msm-bh201.h"
 /* huaqin add for SD card bringup by liufurong at 20190201 end */
-#include "sdhci-msm-ice.h"
 #include "cmdq_hci.h"
 #include "cmdq_hci-crypto-qti.h"
 
