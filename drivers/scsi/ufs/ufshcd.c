@@ -10859,6 +10859,8 @@ static void ufshcd_add_desc_sysfs_nodes(struct device *dev)
 static void ufshcd_remove_desc_sysfs_nodes(struct device *dev)
 {
 	sysfs_remove_groups(&dev->kobj, ufs_sysfs_groups);
+}
+
 static int next_power_of_2(int num)
 {
 	if (num <= 0 || num > (1<<30)) {
