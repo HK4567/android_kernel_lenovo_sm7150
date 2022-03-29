@@ -70,7 +70,7 @@ static const struct attribute_group fan49103_attr_group = {
 	.attrs = fan49103_attributes,
 };
 
-int fan49103_init_regs() {
+int fan49103_init_regs(void) {
 	int ret;
 
 	if(!g_i2c_client) {
